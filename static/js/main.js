@@ -105,10 +105,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (isActive) {
       applyBadgeInactive(badgeEl);
       hidden.value = '0';
+      unfilledInputsPago(personId);
     } else {
       applyBadgeActive(badgeEl);
       hidden.value = '1';
+      filledInputsPago(personId);
     }
+    marcarPagadoVisual(personId);
   }
 
   function applyBadgeActive(badgeEl) {
@@ -123,6 +126,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
 }); // DOMContentLoaded end
 
+function filledInputsPago(personId){
+  const estadoSelect = document.querySelector(`[name="estado_${personId}"]`);
+  const montoInput = document.querySelector(`[name="monto_${personId}"]`);
+  const abonadoInput = document.querySelector(`[name="abonado_${personId}"]`);
+  const faltaInput = document.getElementById(`falta_${personId}`);
+
+  abonadoInput.value = montoInput.value;
+  estadoSelect.value = 'Pagado'
+  faltaInput.value =  0;
+}
+
+function unfilledInputsPago(personId){
+  const estadoSelect = document.querySelector(`[name="estado_${personId}"]`);
+  const montoInput = document.querySelector(`[name="monto_${personId}"]`);
+  const abonadoInput = document.querySelector(`[name="abonado_${personId}"]`);
+  const faltaInput = document.getElementById(`falta_${personId}`);
+
+  abonadoInput.value = 0;
+  estadoSelect.value = 'Debe'
+  faltaInput.value =  montoInput.value;
+}
 
 // Mantén tu función marcarPagadoVisual (sólo afecta "falta")
 function marcarPagadoVisual(personId){
