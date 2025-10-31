@@ -296,7 +296,6 @@ def create_app():
             hasta=hasta or ''
         )
 
-
     @app.route('/movimiento/<int:mov_id>', methods=['GET', 'POST'])
     @login_required
     def movimiento_detail(mov_id):
@@ -333,8 +332,6 @@ def create_app():
             pagador_todo=pagador_todo, 
             deuda_total=deuda_total
         )
-
-
 
     @app.route('/movimiento/delete/<int:mov_id>', methods=['POST'])
     @login_required
@@ -405,8 +402,6 @@ def create_app():
         flash('Abono eliminado correctamente.', 'success')
         return redirect(url_for('movimiento_detail', mov_id=mov_id))
 
-
-    
     # -------------------------------
     # EXPORTAR A CSV
     # -------------------------------
@@ -427,7 +422,6 @@ def create_app():
                         mimetype='text/csv',
                         as_attachment=True,
                         download_name='movimientos.csv')
-
 
     # -------------------------------
     # EXPORTAR A PDF

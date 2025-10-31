@@ -43,66 +43,74 @@
   <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col">
 
     <!-- Navbar -->
-    <nav class="bg-primary dark:bg-gray-800 border-b border-indigo-500 shadow-lg">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
+    <nav class="relative bg-primary dark:bg-gray-800 border-b border-indigo-500 shadow-lg">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="relative flex h-16 items-center justify-between">
 
-          <!-- Logo -->
-          <a href="{{ url_for('dashboard') }}" class="text-white font-semibold text-lg flex items-center space-x-2">
-            🛍️ <span>Tienda Manager</span>
-          </a>
-
-          <!-- Botones en desktop -->
-          <div class="hidden md:flex space-x-4">
-            {% if current_user.is_authenticated %}
-              <a href="{{ url_for('dashboard') }}" class="hover:text-indigo-200 text-white">Dashboard</a>
-              <a href="{{ url_for('movimientos') }}" class="hover:text-indigo-200 text-white">Movimientos</a>
-              <a href="{{ url_for('personas') }}" class="hover:text-indigo-200 text-white">Personas</a>
-              <a href="{{ url_for('logout') }}" class="bg-white text-primary font-medium px-3 py-1 rounded-lg hover:bg-indigo-100 transition">Salir</a>
-            {% else %}
-              <a href="{{ url_for('login') }}" class="hover:text-indigo-200 text-white">Login</a>
-              <a href="{{ url_for('register') }}" class="hover:text-indigo-200 text-white">Registro</a>
-            {% endif %}
+          <!-- Botón menú móvil -->
+          <div class="absolute inset-y-0 left-0 flex items-center sm:hidden">
+            <button type="button" data-collapse-toggle="mobile-menu" class="inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <span class="sr-only">Abrir menú</span>
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+              </svg>
+            </button>
           </div>
 
-          <!-- Modo oscuro -->
-          <button id="theme-toggle" class="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white ml-2">
-            <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 3v1m0 16v1m8.66-9H21m-18 0h1m15.364 6.364l-.707.707M5.636 6.636l.707.707m12.02 10.02l.707.707M6.343 17.657l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z">
-              </path>
-            </svg>
-            <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z">
-              </path>
-            </svg>
-          </button>
+          <!-- Logo + Links -->
+          <div class="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
+            <a href="{{ url_for('dashboard') }}" class="flex items-center space-x-2">
+              🛍️ <span class="text-white font-semibold text-lg">Tienda Manager</span>
+            </a>
 
-          <!-- Botón hamburguesa -->
-          <button data-collapse-toggle="mobile-menu" type="button"
-            class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-200 rounded-lg md:hidden hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            aria-controls="mobile-menu" aria-expanded="false">
-            <svg class="w-6 h-6" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 6h16M4 12h16m-7 6h7"></path>
-            </svg>
-          </button>
+            <div class="hidden sm:ml-6 sm:flex sm:space-x-4">
+              {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-900 dark:bg-gray-950/50">Dashboard</a>
+                <a href="{{ url_for('movimientos') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white">Movimientos</a>
+                <a href="{{ url_for('personas') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white">Personas</a>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Dark mode toggle + Perfil -->
+          <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0 space-x-2">
+
+            <!-- Toggle Dark/Light -->
+            <button id="theme-toggle" class="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white">
+              <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-9H21m-18 0h1m15.364 6.364l-.707.707M5.636 6.636l.707.707m12.02 10.02l.707.707M6.343 17.657l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
+              </svg>
+              <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+              </svg>
+            </button>
+
+            {% if current_user.is_authenticated %}
+            <!-- Perfil Dropdown -->
+            <div class="relative ml-3 group">
+              <button class="flex rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <span class="sr-only">Abrir menú de usuario</span>
+                <img class="h-8 w-8 rounded-full" src="{{ url_for('static', filename='img/user.png') }}" alt="">
+              </button>
+
+              <div class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none hidden group-hover:block z-50">
+                <!-- <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5">Perfil</a>
+                <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5">Configuración</a> -->
+                <a href="{{ url_for('logout') }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5">Salir</a>
+              </div>
+            </div>
+            {% endif %}
+          </div>
         </div>
       </div>
 
       <!-- Menú móvil -->
-      <div class="hidden md:hidden bg-primary/90 dark:bg-gray-800" id="mobile-menu">
-        <div class="px-4 pt-3 pb-4 space-y-2">
-          {% if current_user.is_authenticated %}
-            <a href="{{ url_for('dashboard') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Dashboard</a>
-            <a href="{{ url_for('movimientos') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Movimientos</a>
-            <a href="{{ url_for('personas') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Personas</a>
-            <a href="{{ url_for('logout') }}" class="block bg-white text-primary text-center rounded-md px-3 py-2 font-medium hover:bg-indigo-100 transition">Salir</a>
-          {% else %}
-            <a href="{{ url_for('login') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Login</a>
-            <a href="{{ url_for('register') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Registro</a>
-          {% endif %}
+      <div class="sm:hidden hidden" id="mobile-menu">
+        <div class="px-2 pt-2 pb-3 space-y-1">
+          <a href="{{ url_for('dashboard') }}" class="block px-3 py-2 rounded-md text-base font-medium text-white bg-gray-900 dark:bg-gray-950/50">Dashboard</a>
+          <a href="{{ url_for('movimientos') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white">Movimientos</a>
+          <a href="{{ url_for('personas') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white">Personas</a>
+          <!-- <a href="{{ url_for('logout') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white">Salir</a> -->
         </div>
       </div>
     </nav>
