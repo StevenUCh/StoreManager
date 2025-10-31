@@ -93,7 +93,11 @@ def create_app():
         movimientos_saldo = []
 
         for mov in movimientos:
-            total_falta = sum(det.monto - sum(a.monto for a in det.abonos) for det in mov.detalles)
+            total_falta = 0
+            for det in mov.detalles:
+                abonos_sum = sum(a.monto for a in det.abonos)
+                falta_detalle = det.monto - (det.abonado + abonos_sum)
+                total_falta += falta_detalle
             movimientos_saldo.append({
                 'id': mov.id,
                 'fecha': mov.fecha,
@@ -134,7 +138,7 @@ def create_app():
         total_deuda = 0
         for p in persons:
             total_monto = sum(d.monto for d in p.detalles if d.movimiento.user_id == current_user.id)
-            total_abonos = sum(sum(a.monto for a in d.abonos) for d in p.detalles if d.movimiento.user_id == current_user.id)
+            total_abonos = sum(d.abonado + sum(a.monto for a in d.abonos) for d in p.detalles if d.movimiento.user_id == current_user.id)
             total_debe = max(total_monto - total_abonos, 0)
             deudas.append({
                 'person': p,
