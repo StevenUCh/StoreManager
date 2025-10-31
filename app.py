@@ -16,9 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-
 
 def create_app():
     app = Flask(__name__)
@@ -27,7 +25,7 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
-    
+
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'login'
@@ -431,6 +429,7 @@ def create_app():
     return app
 
 
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     app.run(debug=True, port=5226)
