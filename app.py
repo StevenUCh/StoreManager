@@ -11,6 +11,9 @@ import csv, io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +22,12 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-prod')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'db/database.db')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
-
+    
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'login'
