@@ -12,6 +12,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import logging
 from dotenv import load_dotenv
+from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
 
@@ -459,6 +460,30 @@ def create_app():
                         as_attachment=True,
                         download_name='movimientos.pdf')
 
+    # --------------------------
+    # Error handlers personalizados
+    # --------------------------
+    @app.errorhandler(IntegrityError)
+    def handle_integrity_error(error):
+        db.session.rollback()
+        return render_template('errors/error_general.html'), 409
+
+    @app.errorhandler(401)
+    def unauthorized_error(error):
+        return render_template('errors/401.html'), 401
+
+    @app.errorhandler(404)
+    def not_found_error(error):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(409)
+    def conflict_error(error):
+        return render_template('errors/409.html'), 409
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        return render_template('errors/500.html'), 500
 
     # Inicializar base de datos al iniciar la app
     with app.app_context():

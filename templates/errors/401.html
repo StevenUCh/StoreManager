@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex flex-col items-center justify-center text-center py-24">
+  <div class="bg-primary/10 dark:bg-primary/20 p-8 rounded-2xl shadow-md">
+    <div class="text-7xl mb-4">🔒</div>
+    <h1 class="text-5xl font-bold text-primary mb-2">401</h1>
+    <p class="text-lg text-gray-600 dark:text-gray-300 mb-6">
+      No autorizado. No tienes permiso para acceder a esta sección.
+    </p>
+    <a href="{{ url_for('login') }}"
+       class="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-medium transition">
+      Ir al inicio de sesión
+    </a>
+  </div>
+</div>
+{% endblock %}

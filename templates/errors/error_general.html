@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center text-center py-24">
+  
+  <!-- Ícono ilustrativo -->
+  <div class="bg-red-100 dark:bg-red-900/40 rounded-full p-6 mb-6 shadow-md">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  </div>
+
+  <!-- Título -->
+  <h1 class="text-3xl md:text-5xl font-extrabold text-gray-800 dark:text-gray-100 mb-4">
+    ¡Ups! Algo no salió como esperábamos
+  </h1>
+
+  <!-- Mensaje -->
+  <p class="text-base md:text-lg text-gray-700 dark:text-gray-300 mb-8 max-w-2xl leading-relaxed">
+    No fue posible completar esta acción en este momento.<br>
+    Por favor, revisa los datos ingresados o contacta al administrador si el problema persiste.
+  </p>
+
+  <!-- Botones -->
+  <div class="flex flex-wrap justify-center gap-4">
+    <a href="{{ url_for('dashboard') }}"
+       class="bg-primary hover:bg-primary-dark text-white font-medium px-6 py-3 rounded-xl shadow transition">
+      ← Volver al inicio
+    </a>
+    <a href="{{ request.referrer or url_for('dashboard') }}"
+       class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100 font-medium px-6 py-3 rounded-xl shadow hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+      Intentar de nuevo
+    </a>
+  </div>
+</div>
+{% endblock %}
