@@ -13,8 +13,16 @@
   </p>
 
   {% if mov.descripcion %}
-    <p class="text-gray-700 dark:text-gray-200 mb-4">{{ mov.descripcion }}</p>
+    <p class="text-gray-700 dark:text-gray-200 mb-1">{{ mov.descripcion }}</p>
   {% endif %}
+
+  {% if pagador_todo %}
+    <p class="text-gray-600 dark:text-gray-300 mb-4">
+      Se deben a <strong>{{ pagador_todo.person.name }}</strong> el valor de: 
+      <strong>${{ '{:,.2f}'.format(deuda_total) }}</strong>
+    </p>
+  {% endif %}
+
 
   <!-- Botón para agregar abono -->
   <div class="mb-4">

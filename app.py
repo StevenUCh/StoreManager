@@ -315,7 +315,24 @@ def create_app():
             db.session.commit()
             flash('Detalles actualizados', 'success')
             return redirect(url_for('movimiento_detail', mov_id=mov_id))
-        return render_template('deuda_detalle.html', mov=m)
+
+        # --- NUEVO CÁLCULO: quien pagó todo y cuánto le deben ---
+        pagador_todo = next((d for d in m.detalles if d.pago_todo), None)
+        deuda_total = 0
+        if pagador_todo:
+            for d in m.detalles:
+                if d.id != pagador_todo.id:
+                    # suma del abono inicial + abonos adicionales
+                    abonado_total = d.abonado + sum(a.monto for a in d.abonos)
+                    deuda_total += max(d.monto - abonado_total, 0)
+
+        return render_template(
+            'deuda_detalle.html', 
+            mov=m, 
+            pagador_todo=pagador_todo, 
+            deuda_total=deuda_total
+        )
+
 
 
     @app.route('/movimiento/delete/<int:mov_id>', methods=['POST'])
