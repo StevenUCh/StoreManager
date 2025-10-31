@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Toggle Dark Mode -->
+<div class="flex justify-end items-center p-4">
+  <button id="themeToggle" class="text-gray-600 dark:text-gray-300 transition hover:text-indigo-500 dark:hover:text-indigo-400">
+    <i class="bi bi-brightness-high text-xl hidden dark:inline"></i>
+    <i class="bi bi-moon-stars text-xl inline dark:hidden"></i>
+  </button>
+</div>
+
+<div class="container mx-auto px-4 py-6 animate__animated animate__fadeIn">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <!-- Formulario -->
+    <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 transition hover:shadow-xl">
+      <div class="text-center mb-6">
+        <i class="bi bi-person-plus text-4xl text-indigo-500 mb-2"></i>
+        <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">Agregar persona</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Registra a las personas relacionadas con tus movimientos</p>
+      </div>
+
+      <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nombre completo</label>
+          {{ form.name(class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-400 focus:outline-none", placeholder="Ej: Juan Pérez", autocomplete="off") }}
+        </div>
+        <div>
+          {{ form.submit(class="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-md hover:shadow-lg") }}
+        </div>
+      </form>
+    </div>
+
+    <!-- Tabla de personas -->
+    <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 transition hover:shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h5 class="font-bold text-indigo-500 flex items-center gap-2">
+            <i class="bi bi-people"></i> Personas
+          </h5>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Listado de personas registradas</p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-white text-sm font-medium bg-gradient-to-r from-indigo-500 to-blue-600">
+          {{ persons|length }} registradas
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm">
+              <th class="p-3">Nombre</th>
+              <th class="p-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in persons %}
+            <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+              <td class="p-3 text-gray-800 dark:text-gray-100">{{ p.name }}</td>
+              <td class="p-3 text-right">
+                <form method="POST" action="{{ url_for('person_delete', person_id=p.id) }}" class="inline">
+                  <button class="text-red-500 hover:text-red-600 text-sm font-semibold"
+                    onclick="return confirm('¿Eliminar persona?')">
+                    <i class="bi bi-trash"></i> Eliminar
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="2" class="text-center text-gray-500 dark:text-gray-400 py-4">
+                <i class="bi bi-info-circle me-2"></i>No hay personas registradas.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Animaciones -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+<!-- Script: Dark/Light mode -->
+<script>
+  const toggle = document.getElementById('themeToggle');
+  const html = document.documentElement;
+
+  // Inicializar según preferencia del sistema
+  if (localStorage.theme === 'dark' || 
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    html.classList.add('dark');
+  } else {
+    html.classList.remove('dark');
+  }
+
+  // Cambiar tema manualmente
+  toggle.addEventListener('click', () => {
+    html.classList.toggle('dark');
+    localStorage.theme = html.classList.contains('dark') ? 'dark' : 'light';
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 max-w-5xl mx-auto mt-6">
+
+  <h3 class="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+    Movimiento #{{ mov.id }} — {{ mov.tipo|capitalize }} — 
+    <span class="text-gray-800 dark:text-gray-200">${{ '{:,.2f}'.format(mov.monto) }}</span>
+  </h3>
+
+  <p class="text-gray-600 dark:text-gray-300 mb-1">
+    Categoría: <strong>{{ mov.categoria }}</strong> · Fecha: <strong>{{ mov.fecha }}</strong>
+  </p>
+
+  {% if mov.descripcion %}
+    <p class="text-gray-700 dark:text-gray-200 mb-4">{{ mov.descripcion }}</p>
+  {% endif %}
+
+  <!-- Botón para agregar abono -->
+  <div class="mb-4">
+    <button type="button" onclick="openModal()" 
+            class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition">
+      ➕ Registrar Abono
+    </button>
+  </div>
+
+  <!-- Tabla de detalles por persona -->
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm text-left border-collapse">
+      <thead class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+        <tr>
+          <th class="p-2">Persona</th>
+          <th class="p-2 text-right">Monto</th>
+          <th class="p-2 text-right">Total abonado</th>
+          <th class="p-2 text-right">Saldo pendiente</th>
+          <th class="p-2 text-center">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in mov.detalles %}
+        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <td class="p-2">{{ d.person.name }}</td>
+          <td class="p-2 text-right">${{ '{:,.2f}'.format(d.monto) }}</td>
+          <!-- TOTAL ABONADO (solo detalle.abonado, ya acumulado) -->
+          <td class="p-2 text-right">${{ '{:,.2f}'.format(d.abonado) }}</td>
+          <!-- SALDO PENDIENTE -->
+          <td class="p-2 text-right">${{ '{:,.2f}'.format(d.monto - d.abonado) }}</td>
+          <td class="p-2 text-center">
+            <span class="px-2 py-1 rounded-md {{ 'bg-green-600 text-white' if d.estado=='Pagado' else 'bg-red-200 text-red-800' }}">
+              {{ d.estado }}
+            </span>
+          </td>
+        </tr>
+
+        {% if d.abonos %}
+        <tr>
+          <td colspan="5" class="p-2 bg-gray-50 dark:bg-gray-800">
+            <strong>Historial de abonos:</strong>
+            <ul class="list-disc pl-6 mt-2 space-y-1">
+              {% for a in d.abonos %}
+              <li class="flex justify-between items-center">
+                <div>
+                  {{ a.fecha.strftime('%Y-%m-%d %H:%M') }} — 
+                  <span class="font-semibold text-green-600 dark:text-green-400">${{ '{:,.2f}'.format(a.monto) }}</span>
+                </div>
+                <form 
+                  action="{{ url_for('delete_abono', abono_id=a.id) }}" 
+                  method="POST" 
+                  onsubmit="return confirm('¿Seguro que deseas eliminar este abono?');"
+                  class="inline"
+                >
+                  <button 
+                    type="submit" 
+                    class="text-red-500 hover:text-red-700 text-sm font-medium ml-4"
+                    title="Eliminar abono"
+                  >
+                    <i class="bi bi-trash"></i> Eliminar
+                  </button>
+                </form>
+              </li>
+              {% endfor %}
+            </ul>
+          </td>
+        </tr>
+        {% endif %}
+
+
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4 text-sm">
+    <a href="{{ url_for('movimientos') }}" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">
+      ← Volver a movimientos
+    </a>
+  </div>
+</div>
+
+<!-- Modal para registrar abono -->
+<div id="modalAbono" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 w-96 relative">
+    <h4 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">Registrar Abono</h4>
+    <form id="formAbono" method="POST" action="{{ url_for('abonar', mov_id=mov.id) }}">
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Persona</label>
+        <select name="detalle_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2" required>
+          <option value="" disabled selected>Selecciona una persona</option>
+          {% for d in mov.detalles %}
+          <option value="{{ d.id }}">{{ d.person.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Monto a abonar</label>
+        <input type="text" name="monto" placeholder="0.00" required
+               class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
+               oninput="formatCurrency(this)"
+               autocomplete="off">
+      </div>
+      <div class="flex justify-end space-x-2 mt-4">
+        <button type="button" onclick="closeModal()" 
+                class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">Cancelar</button>
+        <button type="submit" 
+                class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold">Registrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal() {
+  document.getElementById('modalAbono').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modalAbono').classList.add('hidden');
+}
+
+function formatCurrency(input) {
+  let value = input.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+  if(!value){ input.value=''; return; }
+  const parts = value.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  input.value = parts.join('.');
+}
+</script>
+
+{% endblock %}

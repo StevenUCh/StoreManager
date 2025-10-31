@@ -1,0 +1,4 @@
+body { padding-bottom: 40px; }
+.card-compact { padding: .75rem; }
+.table-fixed { table-layout: fixed; word-wrap: break-word; }
+.small-muted { font-size: .85rem; color: #6c757d; }

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="utf-8">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tienda Manager</title>
+
+    <!-- Tailwind + Flowbite -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configuración de Tailwind con modo oscuro
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                light: '#6366f1',
+                DEFAULT: '#4f46e5',
+                dark: '#4338ca'
+              }
+            }
+          }
+        }
+      }
+
+      // Aplicar modo oscuro según localStorage o sistema
+      if (
+        localStorage.theme === 'dark' ||
+        (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      ) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    </script>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  </head>
+
+  <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-primary dark:bg-gray-800 border-b border-indigo-500 shadow-lg">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+
+          <!-- Logo -->
+          <a href="{{ url_for('dashboard') }}" class="text-white font-semibold text-lg flex items-center space-x-2">
+            🛍️ <span>Tienda Manager</span>
+          </a>
+
+          <!-- Botones en desktop -->
+          <div class="hidden md:flex space-x-4">
+            {% if current_user.is_authenticated %}
+              <a href="{{ url_for('dashboard') }}" class="hover:text-indigo-200 text-white">Dashboard</a>
+              <a href="{{ url_for('movimientos') }}" class="hover:text-indigo-200 text-white">Movimientos</a>
+              <a href="{{ url_for('personas') }}" class="hover:text-indigo-200 text-white">Personas</a>
+              <a href="{{ url_for('logout') }}" class="bg-white text-primary font-medium px-3 py-1 rounded-lg hover:bg-indigo-100 transition">Salir</a>
+            {% else %}
+              <a href="{{ url_for('login') }}" class="hover:text-indigo-200 text-white">Login</a>
+              <a href="{{ url_for('register') }}" class="hover:text-indigo-200 text-white">Registro</a>
+            {% endif %}
+          </div>
+
+          <!-- Modo oscuro -->
+          <button id="theme-toggle" class="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white ml-2">
+            <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m8.66-9H21m-18 0h1m15.364 6.364l-.707.707M5.636 6.636l.707.707m12.02 10.02l.707.707M6.343 17.657l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z">
+              </path>
+            </svg>
+            <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z">
+              </path>
+            </svg>
+          </button>
+
+          <!-- Botón hamburguesa -->
+          <button data-collapse-toggle="mobile-menu" type="button"
+            class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-200 rounded-lg md:hidden hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            aria-controls="mobile-menu" aria-expanded="false">
+            <svg class="w-6 h-6" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 6h16M4 12h16m-7 6h7"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Menú móvil -->
+      <div class="hidden md:hidden bg-primary/90 dark:bg-gray-800" id="mobile-menu">
+        <div class="px-4 pt-3 pb-4 space-y-2">
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('dashboard') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Dashboard</a>
+            <a href="{{ url_for('movimientos') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Movimientos</a>
+            <a href="{{ url_for('personas') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Personas</a>
+            <a href="{{ url_for('logout') }}" class="block bg-white text-primary text-center rounded-md px-3 py-2 font-medium hover:bg-indigo-100 transition">Salir</a>
+          {% else %}
+            <a href="{{ url_for('login') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Login</a>
+            <a href="{{ url_for('register') }}" class="block text-white hover:bg-white/20 rounded-md px-3 py-2">Registro</a>
+          {% endif %}
+        </div>
+      </div>
+    </nav>
+
+    <!-- Contenido principal -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-6">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="mb-4 p-4 rounded-lg text-sm
+              {% if category == 'success' %} bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
+              {% elif category == 'danger' %} bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200
+              {% else %} bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 {% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-8 py-4 text-center text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+      © {{ current_year or '2025' }} Tienda Manager — Todos los derechos reservados.
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- Toggle dark mode -->
+    <script>
+      const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+      const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+      const themeToggleBtn = document.getElementById('theme-toggle');
+
+      if (document.documentElement.classList.contains('dark')) {
+        themeToggleLightIcon.classList.remove('hidden');
+      } else {
+        themeToggleDarkIcon.classList.remove('hidden');
+      }
+
+      themeToggleBtn.addEventListener('click', () => {
+        themeToggleDarkIcon.classList.toggle('hidden');
+        themeToggleLightIcon.classList.toggle('hidden');
+        if (document.documentElement.classList.contains('dark')) {
+          document.documentElement.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
+        } else {
+          document.documentElement.classList.add('dark');
+          localStorage.setItem('theme', 'dark');
+        }
+      });
+    </script>
+  </body>
+</html>
