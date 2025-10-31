@@ -18,7 +18,7 @@
 
       <div>
         <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Categoría</label>
-        {{ form.categoria(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2", autocomplete="off") }}
+        {{ form.categoria(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2") }}
       </div>
 
       <div>
@@ -37,44 +37,79 @@
       </div>
 
       <div class="flex items-center justify-between mt-3">
-        <button type="button" onclick="dividirIgual()" class="text-indigo-600 hover:text-indigo-400 font-semibold text-sm">
-          ➗ Dividir igual
+        <button type="button" id="btnDividir" onclick="dividirSeleccionadas()" 
+          class="text-indigo-600 hover:text-indigo-400 font-semibold text-sm" disabled>
+          ➗ Dividir entre seleccionados
         </button>
         <small class="text-gray-500 dark:text-gray-400">Rellena los montos por persona</small>
       </div>
+
+
 
       <hr class="my-4 border-gray-300 dark:border-gray-700">
 
       <h6 class="mb-3 font-semibold text-gray-700 dark:text-gray-300">👥 Montos por persona</h6>
 
-      {% if persons %}
-        <div class="grid grid-cols-1 gap-2">
-          {% for p in persons %}
-          <div class="grid grid-cols-5 gap-2 items-center">
-            <label class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ p.name }}</label>
+      <div class="space-y-4">
+        {% if persons %}
+          <div class="grid grid-cols-1 gap-4">
+            {% for p in persons %}
+            <div class="grid grid-cols-7 gap-2 items-center border-b border-gray-200 dark:border-gray-700 pb-2"
+                data-person-id="{{ p.id }}">
+              
+              <!-- Checkbox para dividir entre seleccionados (mantén sr-only si quieres ocultarlo) -->
+              <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="person-checkbox sr-only" data-person-id="{{ p.id }}">
+                <span class="w-5 h-5 inline-block mr-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900
+                            flex-shrink-0 justify-center items-center text-white relative">
+                  <svg class="hidden w-4 h-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+              </label>
 
-            <input type="text" name="monto_{{ p.id }}" placeholder="Monto" 
-                  class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
-                  oninput="formatCurrency(this); calcularFalta({{ p.id }})">
+              <!-- Nombre de la persona -->
+              <span class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ p.name }}</span>
 
-            <input type="text" name="abonado_{{ p.id }}" placeholder="Abono"
-                  class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
-                  oninput="formatCurrency(this); calcularFalta({{ p.id }})">
+              <!-- Badge Pago (visual). data-person-id para identificar -->
+              <span class="pago-badge px-4 py-1 text-xs rounded-full border border-gray-300 dark:border-gray-700 
+                          bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 cursor-pointer select-none transition-colors"
+                    data-person-id="{{ p.id }}">
+                Pago
+              </span>
 
-            <input type="text" id="falta_{{ p.id }}" readonly placeholder="Falta"
-                  class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 text-right p-2 cursor-not-allowed">
+              <!-- Hidden input para enviar estado del badge en el formulario (0/1) -->
+              <input type="hidden" name="pago_{{ p.id }}" value="0" class="pago-hidden" data-person-id="{{ p.id }}">
 
-            <select name="estado_{{ p.id }}" 
-                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2">
-              <option value="Debe">Debe</option>
-              <option value="Pagado">Pagado</option>
-            </select>
+              <!-- Monto -->
+              <input type="text" name="monto_{{ p.id }}" placeholder="Monto" 
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
+                    oninput="formatCurrency(this); calcularFalta({{ p.id }})">
+
+              <!-- Abonado -->
+              <input type="text" name="abonado_{{ p.id }}" placeholder="Abono"
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
+                    oninput="formatCurrency(this); calcularFalta({{ p.id }})">
+
+              <!-- Falta -->
+              <input type="text" id="falta_{{ p.id }}" readonly placeholder="Falta"
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 text-right p-2 cursor-not-allowed">
+
+              <!-- Selector Debe/Pagado -->
+              <select name="estado_{{ p.id }}" 
+                      class="estado-persona rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2"
+                      onchange="marcarPagadoVisual({{ p.id }})">
+                <option value="Debe">Debe</option>
+                <option value="Pagado">Pagado</option>
+              </select>
+
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="text-gray-600 dark:text-gray-400">No hay personas. Añade personas en la pestaña <strong>Personas</strong>.</p>
-      {% endif %}
+        {% else %}
+          <p class="text-gray-600 dark:text-gray-400">No hay personas. Añade personas en la pestaña <strong>Personas</strong>.</p>
+        {% endif %}
+      </div>
 
       <div class="pt-4">
         {{ form.submit(class="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition") }}

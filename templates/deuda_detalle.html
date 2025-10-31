@@ -30,6 +30,7 @@
       <thead class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
         <tr>
           <th class="p-2">Persona</th>
+          <th class="p-2 text-center">Pagó todo</th>
           <th class="p-2 text-right">Monto</th>
           <th class="p-2 text-right">Total abonado</th>
           <th class="p-2 text-right">Saldo pendiente</th>
@@ -40,6 +41,14 @@
         {% for d in mov.detalles %}
         <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
           <td class="p-2">{{ d.person.name }}</td>
+          <td class="p-2 text-center">
+          {% if d.pago_todo %}  {# Esta propiedad debe venir desde tu modelo/ORM #}
+            <span class="px-2 py-1 rounded-md bg-green-600 text-white">Pago</span>
+          {% else %}
+            -
+          {% endif %}
+        </td>
+
           <td class="p-2 text-right">${{ '{:,.2f}'.format(d.monto) }}</td>
           <!-- TOTAL ABONADO (solo detalle.abonado, ya acumulado) -->
           <td class="p-2 text-right">${{ '{:,.2f}'.format(d.abonado) }}</td>
@@ -116,6 +125,12 @@
         <input type="text" name="monto" placeholder="0.00" required
                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
                oninput="formatCurrency(this)"
+               autocomplete="off">
+      </div>
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+        <input type="datetime-local" name="fecha" placeholder="" required
+               class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
                autocomplete="off">
       </div>
       <div class="flex justify-end space-x-2 mt-4">

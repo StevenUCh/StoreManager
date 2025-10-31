@@ -90,6 +90,19 @@ def create_app():
     @login_required
     def dashboard():
         movimientos = Movimiento.query.filter_by(user_id=current_user.id).order_by(Movimiento.fecha.desc()).limit(10).all()
+        movimientos_saldo = []
+
+        for mov in movimientos:
+            total_falta = sum(det.monto - sum(a.monto for a in det.abonos) for det in mov.detalles)
+            movimientos_saldo.append({
+                'id': mov.id,
+                'fecha': mov.fecha,
+                'tipo': mov.tipo,
+                'categoria': mov.categoria,
+                'descripcion': mov.descripcion,
+                'monto': mov.monto,
+                'falta': total_falta
+            })
         all_movs = Movimiento.query.filter_by(user_id=current_user.id).all()
 
         ingresos = sum(m.monto for m in all_movs if m.tipo == 'ingreso')
@@ -118,6 +131,7 @@ def create_app():
         # Deudas por persona
         persons = Person.query.filter_by(user_id=current_user.id).all()
         deudas = []
+        total_deuda = 0
         for p in persons:
             total_monto = sum(d.monto for d in p.detalles if d.movimiento.user_id == current_user.id)
             total_abonos = sum(sum(a.monto for a in d.abonos) for d in p.detalles if d.movimiento.user_id == current_user.id)
@@ -127,17 +141,19 @@ def create_app():
                 'debe': total_debe,
                 'pagado': total_abonos
             })
+            total_deuda += total_debe
 
         return render_template(
             'dashboard.html',
-            movimientos=movimientos,
+            movimientos=movimientos_saldo,
             ingresos=ingresos,
             gastos=gastos,
             pagos=pagos,
             balance=balance,
             deudas=deudas,
             ingresos_gastos_data=ingresos_gastos_data,
-            categorias_data=categorias_data
+            categorias_data=categorias_data,
+            total_deuda = total_deuda
         )
 
     @app.template_filter('currency')
@@ -242,7 +258,7 @@ def create_app():
                         abonado = float(request.form.get(key_a, '0').replace(',', '').strip() or 0)
                         falta = max(monto_persona - abonado, 0)
                         estado = request.form.get(key_e, 'Debe')
-
+                        pago_key = f"pago_{p.id}"
                         detalle = DetalleMovimiento(
                             persona_id=p.id,
                             movimiento_id=movimiento.id,
@@ -251,6 +267,7 @@ def create_app():
                             falta=falta,
                             estado=estado
                         )
+                        detalle.pago_todo = request.form.get(pago_key) == '1'
                         db.session.add(detalle)
                     except ValueError as ve:
                         logger.warning(f"Error parseando monto/abonado para {p.name}: {ve}")
@@ -320,6 +337,8 @@ def create_app():
         mov = Movimiento.query.filter_by(id=mov_id, user_id=current_user.id).first_or_404()
         detalle_id = request.form.get('detalle_id')
         monto_str = request.form.get('monto', '0').replace(',', '').strip()
+        fecha = request.form.get('fecha', '0').replace(',', '').strip()
+        fecha_obj = datetime.strptime(fecha, "%Y-%m-%dT%H:%M")
 
         try:
             monto = float(monto_str)
@@ -330,7 +349,7 @@ def create_app():
         detalle = DetalleMovimiento.query.filter_by(id=detalle_id, movimiento_id=mov.id).first_or_404()
 
         # Crear el nuevo abono
-        nuevo_abono = Abono(detalle_id=detalle.id, monto=monto)
+        nuevo_abono = Abono(detalle_id=detalle.id, monto=monto, fecha=fecha_obj)
         db.session.add(nuevo_abono)
 
         # Actualizar monto abonado y saldo pendiente

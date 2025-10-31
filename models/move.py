@@ -23,14 +23,13 @@ class DetalleMovimiento(db.Model):
     monto = db.Column(db.Float, nullable=False)
     abonado = db.Column(db.Float, nullable=False, default=0)
     falta = db.Column(db.Float, nullable=False, default=0)
-    estado = db.Column(db.String(20), nullable=False, default='Debe')  # 'Debe' o 'Pagado'
+    estado = db.Column(db.String(20), nullable=False, default='Debe')
+    pago_todo = db.Column(db.Boolean, default=False)
 
+    abonos = db.relationship( 'Abono', backref='detalle', cascade='all, delete-orphan', lazy=True )
 class Abono(db.Model):
     __tablename__ = 'abono'
     id = db.Column(db.Integer, primary_key=True)
     detalle_id = db.Column(db.Integer, db.ForeignKey('detalle_movimiento.id'), nullable=False)
     monto = db.Column(db.Float, nullable=False)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    detalle = db.relationship('DetalleMovimiento', backref='abonos', lazy=True)
-
