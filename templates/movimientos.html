@@ -54,50 +54,54 @@
         {% if persons %}
           <div class="grid grid-cols-1 gap-4">
             {% for p in persons %}
-            <div class="grid grid-cols-7 gap-2 items-center border-b border-gray-200 dark:border-gray-700 pb-2"
+            <div class="grid grid-cols-1 sm:grid-cols-7 gap-2 items-center border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-900 shadow-sm transition-all hover:shadow-md"
                 data-person-id="{{ p.id }}">
               
-              <!-- Checkbox para dividir entre seleccionados (mantén sr-only si quieres ocultarlo) -->
-              <label class="inline-flex items-center cursor-pointer">
-                <input type="checkbox" class="person-checkbox sr-only" data-person-id="{{ p.id }}">
-                <span class="w-5 h-5 inline-block mr-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900
-                            flex-shrink-0 justify-center items-center text-white relative">
-                  <svg class="hidden w-4 h-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </span>
-              </label>
+              <!-- Checkbox para dividir -->
+              <div class="flex items-center justify-between sm:justify-start">
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" class="person-checkbox sr-only" data-person-id="{{ p.id }}">
+                  <span class="w-5 h-5 inline-flex mr-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 
+                              justify-center items-center text-white relative">
+                    <svg class="hidden w-4 h-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </span>
+                </label>
+                <span class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate sm:hidden">{{ p.name }}</span>
+              </div>
 
-              <!-- Nombre de la persona -->
-              <span class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ p.name }}</span>
+              <!-- Nombre (visible solo en escritorio para ahorrar espacio en móvil) -->
+              <span class="hidden sm:block text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ p.name }}</span>
 
-              <!-- Badge Pago (visual). data-person-id para identificar -->
+              <!-- Badge Pago -->
               <span class="pago-badge px-4 py-1 text-xs rounded-full border border-gray-300 dark:border-gray-700 
-                          bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 cursor-pointer select-none transition-colors"
+                          bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 cursor-pointer select-none
+                          transition-colors w-full sm:w-auto text-center"
                     data-person-id="{{ p.id }}">
                 Pago
               </span>
 
-              <!-- Hidden input para enviar estado del badge en el formulario (0/1) -->
+              <!-- Hidden input para enviar estado del badge -->
               <input type="hidden" name="pago_{{ p.id }}" value="0" class="pago-hidden" data-person-id="{{ p.id }}">
 
               <!-- Monto -->
-              <input type="text" name="monto_{{ p.id }}" placeholder="Monto" 
-                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
+              <input type="text" name="monto_{{ p.id }}" placeholder="Monto"
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2 w-full sm:w-auto"
                     oninput="formatCurrency(this); calcularFalta({{ p.id }})">
 
               <!-- Abonado -->
               <input type="text" name="abonado_{{ p.id }}" placeholder="Abono"
-                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2 w-full sm:w-auto"
                     oninput="formatCurrency(this); calcularFalta({{ p.id }})">
 
               <!-- Falta -->
               <input type="text" id="falta_{{ p.id }}" readonly placeholder="Falta"
-                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 text-right p-2 cursor-not-allowed">
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 text-right p-2 cursor-not-allowed w-full sm:w-auto">
 
               <!-- Selector Debe/Pagado -->
-              <select name="estado_{{ p.id }}" 
-                      class="estado-persona rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2"
+              <select name="estado_{{ p.id }}"
+                      class="estado-persona rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 w-full sm:w-auto"
                       onchange="marcarPagadoVisual({{ p.id }})">
                 <option value="Debe">Debe</option>
                 <option value="Pagado">Pagado</option>
