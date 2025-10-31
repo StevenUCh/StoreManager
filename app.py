@@ -97,7 +97,7 @@ def create_app():
             total_falta = 0
             for det in mov.detalles:
                 abonos_sum = sum(a.monto for a in det.abonos)
-                falta_detalle = det.monto - (det.abonado + abonos_sum)
+                falta_detalle = det.monto - abonos_sum                
                 total_falta += falta_detalle
             movimientos_saldo.append({
                 'id': mov.id,
@@ -106,7 +106,7 @@ def create_app():
                 'categoria': mov.categoria,
                 'descripcion': mov.descripcion,
                 'monto': mov.monto,
-                'falta': total_falta
+                'falta': total_falta 
             })
         all_movs = Movimiento.query.filter_by(user_id=current_user.id).all()
 
@@ -139,7 +139,7 @@ def create_app():
         total_deuda = 0
         for p in persons:
             total_monto = sum(d.monto for d in p.detalles if d.movimiento.user_id == current_user.id)
-            total_abonos = sum(d.abonado + sum(a.monto for a in d.abonos) for d in p.detalles if d.movimiento.user_id == current_user.id)
+            total_abonos = sum(sum(a.monto for a in d.abonos) for d in p.detalles if d.movimiento.user_id == current_user.id)
             total_debe = max(total_monto - total_abonos, 0)
             deudas.append({
                 'person': p,
@@ -268,12 +268,29 @@ def create_app():
                             persona_id=p.id,
                             movimiento_id=movimiento.id,
                             monto=monto_persona,
-                            abonado=abonado,
-                            falta=falta,
+                            abonado=0,  # Inicialmente en 0
+                            falta=monto_persona,  # Total adeudado
                             estado=estado
                         )
                         detalle.pago_todo = request.form.get(pago_key) == '1'
                         db.session.add(detalle)
+                        db.session.flush()
+
+                        if abonado > 0:
+                            abono_inicial = Abono(
+                                detalle_id=detalle.id,
+                                monto=abonado,
+                                fecha=datetime.combine(fecha, datetime.min.time())
+                            )
+                            db.session.add(abono_inicial)
+                            db.session.flush()
+
+                        total_abonos = sum(a.monto for a in detalle.abonos)
+                        detalle.abonado = total_abonos
+                        detalle.falta = max(detalle.monto - total_abonos, 0)
+                        detalle.estado = 'Pagado' if detalle.falta == 0 else 'Debe'
+
+                        db.session.commit()
                     except ValueError as ve:
                         logger.warning(f"Error parseando monto/abonado para {p.name}: {ve}")
                         continue
@@ -349,20 +366,21 @@ def create_app():
         d.estado = 'Pagado' if d.estado == 'Debe' else 'Debe'
         db.session.commit()
         return jsonify({'status': 'ok', 'estado': d.estado})
-
+    
     @app.route('/movimiento/<int:mov_id>/abonar', methods=['POST'])
     @login_required
     def abonar(mov_id):
         mov = Movimiento.query.filter_by(id=mov_id, user_id=current_user.id).first_or_404()
         detalle_id = request.form.get('detalle_id')
         monto_str = request.form.get('monto', '0').replace(',', '').strip()
-        fecha = request.form.get('fecha', '0').replace(',', '').strip()
-        fecha_obj = datetime.strptime(fecha, "%Y-%m-%dT%H:%M")
+        fecha_str = request.form.get('fecha', '').strip()
 
+        # Validar datos
         try:
             monto = float(monto_str)
+            fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%dT%H:%M")
         except ValueError:
-            flash('Monto inválido', 'error')
+            flash('Datos inválidos. Revisa el monto y la fecha.', 'error')
             return redirect(url_for('movimiento_detail', mov_id=mov_id))
 
         detalle = DetalleMovimiento.query.filter_by(id=detalle_id, movimiento_id=mov.id).first_or_404()
@@ -370,15 +388,17 @@ def create_app():
         # Crear el nuevo abono
         nuevo_abono = Abono(detalle_id=detalle.id, monto=monto, fecha=fecha_obj)
         db.session.add(nuevo_abono)
+        db.session.flush()
 
-        # Actualizar monto abonado y saldo pendiente
-        detalle.abonado += monto
-        detalle.falta = max(detalle.monto - detalle.abonado, 0)
+        # 🔁 Recalcular saldo pendiente y monto abonado total
+        total_abonos = sum(a.monto for a in detalle.abonos) 
+        detalle.abonado = total_abonos                      
+        detalle.falta = max(detalle.monto - total_abonos, 0)
         detalle.estado = 'Pagado' if detalle.falta == 0 else 'Debe'
 
         db.session.commit()
-        flash(f'Abono de ${monto:,.2f} registrado correctamente', 'success')
 
+        flash(f'Abono de ${monto:,.2f} registrado correctamente.', 'success')
         return redirect(url_for('movimiento_detail', mov_id=mov.id))
 
     @app.route('/abono/<int:abono_id>/delete', methods=['POST'])
