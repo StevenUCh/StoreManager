@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-md mx-auto py-12 animate__animated animate__fadeIn">
+  <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-8">
+    <div class="text-center mb-6">
+      <i class="bi bi-person-circle text-6xl text-indigo-600"></i>
+      <h4 class="text-2xl font-semibold mt-2 text-gray-900 dark:text-gray-100">Crear cuenta</h4>
+      <p class="text-gray-500 dark:text-gray-400 mt-1">Regístrate para comenzar</p>
+    </div>
+
+    <form method="POST" novalidate class="space-y-5">
+      {{ form.hidden_tag() }}
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Usuario</label>
+        {{ form.username(class="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder="Ingresa tu usuario", autocomplete="off") }}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
+        <div class="relative">
+          {{ form.password(class="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white px-3 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500", placeholder="********", autocomplete="off") }}
+          <button type="button" class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 dark:text-gray-300" onclick="togglePassword()">
+            <i class="bi bi-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        {{ form.submit(class="w-full py-2 bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-semibold rounded-lg transition") }}
+      </div>
+    </form>
+
+    <div class="text-center mt-6">
+      <p class="text-gray-500 dark:text-gray-400 mb-1">¿Ya tienes una cuenta?</p>
+      <a href="{{ url_for('login') }}" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Inicia sesión aquí</a>
+    </div>
+  </div>
+</div>
+
+<!-- Librerías externas -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+<script>
+function togglePassword() {
+  const input = document.querySelector('input[name="password"]');
+  const icon = event.currentTarget.querySelector('i');
+  if (input.type === "password") {
+    input.type = "text";
+    icon.classList.replace('bi-eye', 'bi-eye-slash');
+  } else {
+    input.type = "password";
+    icon.classList.replace('bi-eye-slash', 'bi-eye');
+  }
+}
+</script>
+{% endblock %}

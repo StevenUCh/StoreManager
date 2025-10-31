@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2 class="text-2xl font-semibold text-center mb-6 dark:text-gray-100">💸 Nuevo Movimiento</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Formulario -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+    <h4 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">Registrar movimiento</h4>
+
+    <form method="POST" class="space-y-4">
+      {{ form.hidden_tag() }}
+
+      <div>
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+        {{ form.tipo(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2", autocomplete="off") }}
+      </div>
+
+      <div>
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Categoría</label>
+        {{ form.categoria(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2", autocomplete="off") }}
+      </div>
+
+      <div>
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Descripción</label>
+        {{ form.descripcion(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2", rows="2", autocomplete="off") }}
+      </div>
+
+      <div>
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Monto total</label>
+        {{ form.monto(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2", id="montoTotal", placeholder="0.00", oninput="formatCurrency(this)", autocomplete="off") }}
+      </div>
+
+      <div>
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+        {{ form.fecha(class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2", autocomplete="off") }}
+      </div>
+
+      <div class="flex items-center justify-between mt-3">
+        <button type="button" onclick="dividirIgual()" class="text-indigo-600 hover:text-indigo-400 font-semibold text-sm">
+          ➗ Dividir igual
+        </button>
+        <small class="text-gray-500 dark:text-gray-400">Rellena los montos por persona</small>
+      </div>
+
+      <hr class="my-4 border-gray-300 dark:border-gray-700">
+
+      <h6 class="mb-3 font-semibold text-gray-700 dark:text-gray-300">👥 Montos por persona</h6>
+
+      {% if persons %}
+        <div class="grid grid-cols-1 gap-2">
+          {% for p in persons %}
+          <div class="grid grid-cols-5 gap-2 items-center">
+            <label class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ p.name }}</label>
+
+            <input type="text" name="monto_{{ p.id }}" placeholder="Monto" 
+                  class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
+                  oninput="formatCurrency(this); calcularFalta({{ p.id }})">
+
+            <input type="text" name="abonado_{{ p.id }}" placeholder="Abono"
+                  class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white text-right p-2"
+                  oninput="formatCurrency(this); calcularFalta({{ p.id }})">
+
+            <input type="text" id="falta_{{ p.id }}" readonly placeholder="Falta"
+                  class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 text-right p-2 cursor-not-allowed">
+
+            <select name="estado_{{ p.id }}" 
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2">
+              <option value="Debe">Debe</option>
+              <option value="Pagado">Pagado</option>
+            </select>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-gray-600 dark:text-gray-400">No hay personas. Añade personas en la pestaña <strong>Personas</strong>.</p>
+      {% endif %}
+
+      <div class="pt-4">
+        {{ form.submit(class="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition") }}
+      </div>
+    </form>
+  </div>
+
+  <!-- Historial -->
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 overflow-auto">
+    <h4 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-3">🕓 Historial</h4>
+    <table class="w-full text-sm text-left border-collapse">
+      <thead class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+        <tr>
+          <th class="p-2 text-center">Fecha</th>
+          <th class="p-2 text-center">Tipo</th>
+          <th class="p-2 text-center">Categoría</th>
+          <th class="p-2 text-center">Descripción</th>
+          <th class="p-2 text-center">Monto</th>
+          <th class="p-2 text-center" colspan="2">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movimientos %}
+        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <td class="p-2">{{ m.fecha }}</td>
+          <td class="p-2">{{ m.tipo|capitalize }}</td>
+          <td class="p-2">{{ m.categoria }}</td>
+          <td class="p-2">{{ m.descripcion }}</td>
+          <td class="p-2 text-right">${{ '{:,.2f}'.format(m.monto) }}</td>
+          <td class="p-2 text-center">
+            <a href="{{ url_for('movimiento_detail', mov_id=m.id) }}" class="text-indigo-600 hover:text-indigo-400">Ver</a>
+          </td>
+          <td class="p-2 text-center">
+            <form method="POST" action="{{ url_for('movimiento_delete', mov_id=m.id) }}" onsubmit="return confirm('¿Seguro que quieres eliminar este movimiento?');">
+              <button type="submit" class="text-red-500 hover:text-red-700 font-semibold bg-transparent border-0 cursor-pointer">
+                Eliminar
+              </button>
+            </form>
+          </td>
+
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center py-3 text-gray-500 dark:text-gray-400">No hay movimientos registrados</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script>
+function formatCurrency(input) {
+  let value = input.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+  if(!value){ input.value=''; return; }
+  const parts = value.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  input.value = parts.join('.');
+}
+
+
+function calcularFalta(id) {
+  const monto = parseFloat(document.querySelector(`[name="monto_${id}"]`)?.value.replace(/,/g, '')) || 0;
+  const abono = parseFloat(document.querySelector(`[name="abonado_${id}"]`)?.value.replace(/,/g, '')) || 0;
+  const falta = Math.max(monto - abono, 0);
+  document.getElementById(`falta_${id}`).value = falta.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+</script>
+
+
+{% endblock %}
