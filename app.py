@@ -14,6 +14,7 @@ import logging
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
 from flask import session
+from flask_migrate import Migrate
 
 
 load_dotenv()
@@ -25,9 +26,11 @@ def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+    # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'db/database.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
+    migrate = Migrate(app, db) 
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -392,9 +395,9 @@ def create_app():
                 ]
 
         return render_template(
-            'deuda_detalle.html', 
-            mov=m, 
-            pagador_todo=pagador_todo, 
+            'deuda_detalle.html',
+            mov=m,
+            pagador_todo=pagador_todo,
             deuda_total=deuda_total,
             abono=abono,
             movimientos_deudor=movimientos_deudor,
@@ -444,8 +447,8 @@ def create_app():
         db.session.flush()
 
         # Recalcular el total abonado
-        total_abonos = sum(a.monto for a in detalle.abonos) 
-        detalle.abonado = total_abonos                      
+        total_abonos = sum(a.monto for a in detalle.abonos)
+        detalle.abonado = total_abonos
         detalle.falta = max(detalle.monto - total_abonos, 0)
         detalle.estado = 'Pagado' if detalle.falta == 0 else 'Debe'
 
@@ -639,8 +642,8 @@ def create_app():
     # Inicializar base de datos al iniciar la app
     with app.app_context():
         if not os.path.exists(os.path.join(BASE_DIR, 'db/database.db')):
-            os.makedirs(os.path.join(BASE_DIR, 'db'), exist_ok=True)
-            db.create_all()
+                os.makedirs(os.path.join(BASE_DIR, 'db'), exist_ok=True)
+                db.create_all()
 
     return app
 
