@@ -26,7 +26,7 @@
 
   <!-- Botón para agregar abono -->
   <div class="mb-4">
-    <button type="button" onclick="openModal()" 
+    <button type="button" onclick="openModal('modalAbono')" 
             class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition">
       ➕ Registrar Abono
     </button>
@@ -145,8 +145,8 @@
                autocomplete="off">
       </div>
       <div class="flex justify-end space-x-2 mt-4">
-        <button type="button" onclick="closeModal()" 
-                class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">Cancelar</button>
+        <button type="button" onclick="closeModal('modalAbono')" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg"> Cancelar </button>
+
         <button type="submit" 
                 class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold">Registrar</button>
       </div>
@@ -202,9 +202,6 @@
 
       <div id="campoAbono" class="hidden mt-3">
         <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Monto a abonar</label>
-        <!-- <input type="number" id="montoAcum" name="montoAcum" placeholder="0.00" step="0.01" min="0"
-          class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
-          required> -->
         <input type="text" id="montoAcum" name="montoAcum" placeholder="0.00" required
         class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
         oninput="formatCurrency(this)"
@@ -213,6 +210,10 @@
       </div>
 
       <div class="flex justify-end space-x-2 mt-4">
+        <button type="button" onclick="closeModal('modalAbonoIndirecto')" 
+                class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">
+          Cancelar
+        </button>
         <button type="submit" 
                 class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold hidden"
                 id="btnAplicar">
@@ -225,6 +226,15 @@
 {% endif %}
 
 <script>
+
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.add('hidden'); // oculta
+    // opcional: modal.classList.remove('flex'); si quieres eliminar flex
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const select = document.getElementById('selectMovimiento');
   const detalleDiv = document.getElementById('detalleMovimiento');
@@ -283,12 +293,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-function openModal() {
-  document.getElementById('modalAbono').classList.remove('hidden');
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex'); 
+  }
 }
-function closeModal() {
-  document.getElementById('modalAbono').classList.add('hidden');
+
+function openModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
 }
+
 function formatCurrency(input) {
   let value = input.value.replace(/,/g, '').replace(/[^\d.]/g, '');
   if(!value){ input.value=''; return; }
