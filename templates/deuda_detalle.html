@@ -5,7 +5,7 @@
 
   <h3 class="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
     Movimiento #{{ mov.id }} — {{ mov.tipo|capitalize }} — 
-    <span class="text-gray-800 dark:text-gray-200">${{ '{:,.2f}'.format(mov.monto) }}</span>
+    <span class="text-gray-800 dark:text-gray-200">{{ mov.monto | default(0) | currency }}</span>
   </h3>
 
   <p class="text-gray-600 dark:text-gray-300 mb-1">
@@ -19,7 +19,7 @@
   {% if pagador_todo %}
     <p class="text-gray-600 dark:text-gray-300 mb-4">
       Se deben a <strong>{{ pagador_todo.person.name }}</strong> el valor de: 
-      <strong>${{ '{:,.2f}'.format(deuda_total) }}</strong>
+      <strong>{{ deuda_total | default(0) | currency }}</strong>
     </p>
   {% endif %}
 
@@ -50,18 +50,16 @@
         <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
           <td class="p-2">{{ d.person.name }}</td>
           <td class="p-2 text-center">
-          {% if d.pago_todo %}  {# Esta propiedad debe venir desde tu modelo/ORM #}
+          {% if d.pago_todo %}
             <span class="px-2 py-1 rounded-md bg-green-600 text-white">Pago</span>
           {% else %}
             -
           {% endif %}
         </td>
 
-          <td class="p-2 text-right">${{ '{:,.2f}'.format(d.monto) }}</td>
-          <!-- TOTAL ABONADO (solo detalle.abonado, ya acumulado) -->
-          <td class="p-2 text-right">${{ '{:,.2f}'.format(d.abonado) }}</td>
-          <!-- SALDO PENDIENTE -->
-          <td class="p-2 text-right">${{ '{:,.2f}'.format(d.monto - d.abonado) }}</td>
+          <td class="p-2 text-right">{{ d.monto | default(0) | currency }}</td>
+          <td class="p-2 text-right">{{ d.abonado | default(0) | currency }}</td>
+          <td class="p-2 text-right">{{ (d.monto - d.abonado) | default(0) | currency }}</td>
           <td class="p-2 text-center">
             <span class="px-2 py-1 rounded-md {{ 'bg-green-600 text-white' if d.estado=='Pagado' else 'bg-red-200 text-red-800' }}">
               {{ d.estado }}
@@ -77,7 +75,9 @@
               <li class="flex justify-between items-center">
                 <div>
                   {{ a.fecha.strftime('%Y-%m-%d %H:%M') }} — 
-                  <span class="font-semibold text-green-600 dark:text-green-400">${{ '{:,.2f}'.format(a.monto) }}</span>
+                  <span class="font-semibold text-green-600 dark:text-green-400">
+                    {{ a.monto | default(0) | currency }}
+                  </span>
                 </div>
                 <form 
                   action="{{ url_for('delete_abono', abono_id=a.id) }}" 
@@ -99,7 +99,6 @@
           </td>
         </tr>
         {% endif %}
-
 
         {% endfor %}
       </tbody>
@@ -141,7 +140,7 @@
       </div>
       <div class="mb-3">
         <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
-        <input type="datetime-local" name="fecha" placeholder="" required
+        <input type="datetime-local" name="fecha" required
                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
                autocomplete="off">
       </div>
@@ -155,15 +154,141 @@
   </div>
 </div>
 
+{% if abono and movimientos_deudor %}
+<div id="modalAbonoIndirecto" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 w-full max-w-md relative">
+    <h4 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">
+      Asignar abono en nombre de {{ pagador_todo.person.name }}
+    </h4>
+    {% if abono_monto %}
+      <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
+        💰 Abono disponible: <strong>{{ abono_monto | default(0) | currency }}</strong>
+      </p>
+    {% endif %}
+
+    <div class="mb-3 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+      <p><strong>Abono original:</strong> {{ abono.monto | default(0) | currency }}</p>
+      <p>
+        <strong>Saldo disponible:</strong>
+        <span id="saldoAbonoDisponible" class="text-green-600 font-semibold">
+          {{ (abono.monto - (abono.monto_aplicado or 0)) | default(0) | currency }}
+        </span>
+      </p>
+    </div>
+
+    <form id="formAbonoIndirecto" method="POST" action="{{ url_for('asignar_abono_indirecto', abono_id=abono.id) }}">
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Selecciona el movimiento</label>
+        <select id="selectMovimiento" name="movimiento_id"
+                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2"
+                required onchange="mostrarDetalleMovimiento()">
+          <option value="" disabled selected>Elige un movimiento</option>
+          {% for m in movimientos_deudor %}
+          <option value="{{ m.movimiento_id }}"
+                  data-categoria="{{ m.categoria }}"
+                  data-descripcion="{{ m.descripcion or 'Sin descripción' }}"
+                  data-falta="{{ m.falta }}">
+            Movimiento #{{ m.movimiento_id }} — {{ m.categoria }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="detalleMovimiento" class="hidden mt-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-3 text-sm">
+        <p><strong>Categoría:</strong> <span id="catMov"></span></p>
+        <p><strong>Descripción:</strong> <span id="descMov"></span></p>
+        <p><strong>Debe:</strong> <span id="faltanteMov" class="text-red-600 font-semibold"></span></p>
+      </div>
+
+      <div id="campoAbono" class="hidden mt-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Monto a abonar</label>
+        <!-- <input type="number" id="montoAcum" name="montoAcum" placeholder="0.00" step="0.01" min="0"
+          class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
+          required> -->
+        <input type="text" id="montoAcum" name="montoAcum" placeholder="0.00" required
+        class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
+        oninput="formatCurrency(this)"
+        autocomplete="off">
+        <small id="limiteInfo" class="text-gray-500 text-sm"></small>
+      </div>
+
+      <div class="flex justify-end space-x-2 mt-4">
+        <button type="submit" 
+                class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold hidden"
+                id="btnAplicar">
+          Aplicar Abono
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+  const select = document.getElementById('selectMovimiento');
+  const detalleDiv = document.getElementById('detalleMovimiento');
+  const montoAcumInput = document.getElementById('montoAcum');
+  const btnAplicar = document.getElementById('btnAplicar');
+  const campoAbono = document.getElementById('campoAbono');
+  const limiteInfo = document.getElementById('limiteInfo');
+
+  // 💰 Monto disponible del abono original
+  {% if abono %}
+    const saldoDisponible = parseFloat({{ (abono.monto - (abono.monto_aplicado or 0)) | tojson }});
+  {% else %}
+    const saldoDisponible = 0;
+  {% endif %}
+
+  window.mostrarDetalleMovimiento = function() {
+    const selected = select.options[select.selectedIndex];
+    if (!selected) return;
+
+    const categoria = selected.dataset.categoria;
+    const descripcion = selected.dataset.descripcion;
+    const falta = parseFloat(selected.dataset.falta || 0);
+
+    // Mostrar detalle
+    document.getElementById('catMov').textContent = categoria;
+    document.getElementById('descMov').textContent = descripcion;
+    document.getElementById('faltanteMov').textContent = falta.toFixed(2);
+    detalleDiv.classList.remove('hidden');
+    campoAbono.classList.remove('hidden');
+    btnAplicar.classList.remove('hidden');
+
+    // 🔒 Límite máximo = menor entre la deuda y el saldo disponible del abono original
+    const limite = Math.min(falta, saldoDisponible);
+    montoAcumInput.max = limite;
+    limiteInfo.textContent = `Monto máximo permitido: $${limite.toFixed(2)}`;
+
+    montoAcumInput.value = '';
+  };
+
+  // 🔍 Validar el monto ingresado y convertir texto a número sin comas
+  montoAcumInput?.addEventListener('input', () => {
+    let valorStr = montoAcumInput.value.replace(/,/g, ''); // quitar comas
+    let value = parseFloat(valorStr) || 0;
+    const max = parseFloat(montoAcumInput.max) || 0;
+
+    // Evita que el usuario supere el límite
+    if (value > max) {
+      value = max;
+      montoAcumInput.value = value;
+    }
+  });
+
+  // Mostrar el modal automáticamente si existe
+  const modal = document.getElementById('modalAbonoIndirecto');
+  if (modal) modal.classList.remove('hidden');
+});
+
+
 function openModal() {
   document.getElementById('modalAbono').classList.remove('hidden');
 }
-
 function closeModal() {
   document.getElementById('modalAbono').classList.add('hidden');
 }
-
 function formatCurrency(input) {
   let value = input.value.replace(/,/g, '').replace(/[^\d.]/g, '');
   if(!value){ input.value=''; return; }

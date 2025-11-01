@@ -4,7 +4,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from models.users import db, User, Person
-from models.move import Movimiento, DetalleMovimiento, Abono
+from models.move import Movimiento, DetalleMovimiento, Abono, AbonoIndirecto
 from forms.forms import LoginForm, RegisterForm, PersonForm, MovimientoForm
 from flask import send_file
 import csv, io
@@ -13,6 +13,8 @@ from reportlab.pdfgen import canvas
 import logging
 from dotenv import load_dotenv
 from sqlalchemy.exc import IntegrityError
+from flask import session
+
 
 load_dotenv()
 
@@ -137,16 +139,46 @@ def create_app():
         persons = Person.query.filter_by(user_id=current_user.id).all()
         deudas = []
         total_deuda = 0
+
         for p in persons:
-            total_monto = sum(d.monto for d in p.detalles if d.movimiento.user_id == current_user.id)
-            total_abonos = sum(sum(a.monto for a in d.abonos) for d in p.detalles if d.movimiento.user_id == current_user.id)
+            total_monto = 0
+            total_abonos = 0
+            total_le_deben = 0
+            balance = 0
+            for d in p.detalles:
+                # Solo contar movimientos del usuario logueado
+                if d.movimiento.user_id != current_user.id:
+                    continue
+
+                # Monto total y abonos personales
+                abonos_sum = sum(a.monto for a in d.abonos)
+                total_monto += d.monto
+                total_abonos += abonos_sum
+
+                # Si esta persona pagó todo el movimiento
+                if getattr(d, 'pago_todo', False):
+                    otros_detalles = DetalleMovimiento.query.filter(
+                        DetalleMovimiento.movimiento_id == d.movimiento_id,
+                        DetalleMovimiento.persona_id != p.id
+                    ).all()
+
+                    # Sumar la parte que le deben al usuario actual
+                    for od in otros_detalles:
+                        abonos_od = sum(a.monto for a in od.abonos)
+                        deuda_od = max(od.monto - abonos_od, 0)
+                        total_le_deben += deuda_od                        
+
             total_debe = max(total_monto - total_abonos, 0)
+            balance = total_debe - total_le_deben
+            total_deuda += total_debe
+
             deudas.append({
                 'person': p,
                 'debe': total_debe,
-                'pagado': total_abonos
+                'pagado': total_abonos,
+                'le_deben': total_le_deben,
+                'balance': balance
             })
-            total_deuda += total_debe
 
         return render_template(
             'dashboard.html',
@@ -183,9 +215,18 @@ def create_app():
     @login_required
     def person_delete(person_id):
         p = Person.query.filter_by(id=person_id, user_id=current_user.id).first_or_404()
+
+        # Verificar si la persona tiene relaciones
+        tiene_detalles = bool(p.detalles)
+        tiene_abonos = any(d.abonos for d in p.detalles)
+
+        if tiene_detalles or tiene_abonos:
+            flash('No puedes eliminar esta persona porque tiene registros asociados a movimientos o abonos.', 'danger')
+            return redirect(url_for('personas'))
+
         db.session.delete(p)
         db.session.commit()
-        flash('Persona eliminada', 'success')
+        flash('Persona eliminada correctamente.', 'success')
         return redirect(url_for('personas'))
 
     @app.route('/movimientos', methods=['GET', 'POST'])
@@ -316,47 +357,60 @@ def create_app():
     @app.route('/movimiento/<int:mov_id>', methods=['GET', 'POST'])
     @login_required
     def movimiento_detail(mov_id):
-        m = Movimiento.query.filter_by(id=mov_id, user_id=current_user.id).first_or_404()
-        if request.method == 'POST':
-            # actualizar estado de cada detalle
-            for d in m.detalles:
-                estado_key = f"estado_{d.id}"
-                abonado_key = f"abonado_{d.id}"
-                if estado_key in request.form:
-                    d.estado = request.form.get(estado_key)
-                if abonado_key in request.form:
-                    try:
-                        d.abonado = float(request.form.get(abonado_key))
-                    except ValueError:
-                        continue
-            db.session.commit()
-            flash('Detalles actualizados', 'success')
-            return redirect(url_for('movimiento_detail', mov_id=mov_id))
+        abono_id = request.args.get('abono_id', type=int)
+        abono = None
+        movimientos_deudor = []
 
-        # --- NUEVO CÁLCULO: quien pagó todo y cuánto le deben ---
+        m = Movimiento.query.filter_by(id=mov_id, user_id=current_user.id).first_or_404()
         pagador_todo = next((d for d in m.detalles if d.pago_todo), None)
         deuda_total = 0
         if pagador_todo:
             for d in m.detalles:
                 if d.id != pagador_todo.id:
-                    # suma del abono inicial + abonos adicionales
                     abonado_total = d.abonado + sum(a.monto for a in d.abonos)
                     deuda_total += max(d.monto - abonado_total, 0)
+
+        if abono_id:
+            abono = Abono.query.get(abono_id)
+            if abono:
+                session['ultimo_abono_monto'] = float(abono.monto)
+
+            if pagador_todo:
+                movimientos_deudor = [
+                    {
+                        "movimiento_id": d.movimiento_id,
+                        "categoria": m.categoria,
+                        "descripcion": m.descripcion,
+                        "falta": float(d.falta)
+                    }
+                    for d, m in db.session.query(DetalleMovimiento, Movimiento)
+                        .filter(
+                            DetalleMovimiento.persona_id == pagador_todo.persona_id,
+                            DetalleMovimiento.falta > 0,
+                            DetalleMovimiento.movimiento_id == Movimiento.id
+                        )
+                ]
 
         return render_template(
             'deuda_detalle.html', 
             mov=m, 
             pagador_todo=pagador_todo, 
-            deuda_total=deuda_total
+            deuda_total=deuda_total,
+            abono=abono,
+            movimientos_deudor=movimientos_deudor,
+            abono_monto=session.get('ultimo_abono_monto')
         )
 
     @app.route('/movimiento/delete/<int:mov_id>', methods=['POST'])
     @login_required
     def movimiento_delete(mov_id):
-        m = Movimiento.query.filter_by(id=mov_id, user_id=current_user.id).first_or_404()
-        db.session.delete(m)
+        movimiento = Movimiento.query.filter_by(id=mov_id, user_id=current_user.id).first_or_404()
+
+        # Solo necesitas eliminar el movimiento; el cascade hará el resto
+        db.session.delete(movimiento)
         db.session.commit()
-        flash('Movimiento eliminado', 'success')
+
+        flash('Movimiento y todos sus registros asociados eliminados correctamente.', 'success')
         return redirect(url_for('movimientos'))
 
     @app.route('/api/detalle/<int:detalle_id>/toggle', methods=['POST'])
@@ -375,7 +429,6 @@ def create_app():
         monto_str = request.form.get('monto', '0').replace(',', '').strip()
         fecha_str = request.form.get('fecha', '').strip()
 
-        # Validar datos
         try:
             monto = float(monto_str)
             fecha_obj = datetime.strptime(fecha_str, "%Y-%m-%dT%H:%M")
@@ -390,7 +443,7 @@ def create_app():
         db.session.add(nuevo_abono)
         db.session.flush()
 
-        # 🔁 Recalcular saldo pendiente y monto abonado total
+        # Recalcular el total abonado
         total_abonos = sum(a.monto for a in detalle.abonos) 
         detalle.abonado = total_abonos                      
         detalle.falta = max(detalle.monto - total_abonos, 0)
@@ -399,7 +452,8 @@ def create_app():
         db.session.commit()
 
         flash(f'Abono de ${monto:,.2f} registrado correctamente.', 'success')
-        return redirect(url_for('movimiento_detail', mov_id=mov.id))
+
+        return redirect(url_for('movimiento_detail', mov_id=mov.id, abono_id=nuevo_abono.id))
 
     @app.route('/abono/<int:abono_id>/delete', methods=['POST'])
     @login_required
@@ -408,19 +462,102 @@ def create_app():
         detalle = abono.detalle
         mov_id = detalle.movimiento_id
 
+        # Eliminar abonos indirectos relacionados
+        if hasattr(abono, 'indirectos'):  # si existe la relación
+            for indirecto in abono.indirectos:
+                db.session.delete(indirecto)
+
         # Restar el monto del abono eliminado
         detalle.abonado -= abono.monto
         if detalle.abonado < 0:
             detalle.abonado = 0
 
-        # Actualizar el estado
+        # Actualizar el estado del detalle
         detalle.estado = 'Pagado' if detalle.abonado >= detalle.monto else 'Debe'
 
+        # Finalmente eliminamos el abono
         db.session.delete(abono)
         db.session.commit()
 
-        flash('Abono eliminado correctamente.', 'success')
+        flash('Abono y sus relaciones eliminados correctamente.', 'success')
         return redirect(url_for('movimiento_detail', mov_id=mov_id))
+
+    
+    @app.route('/abono/<int:abono_id>/asignar-indirecto', methods=['POST'])
+    @login_required
+    def asignar_abono_indirecto(abono_id):
+        abono_origen = Abono.query.get_or_404(abono_id)
+        detalle_origen = abono_origen.detalle
+        mov_origen = detalle_origen.movimiento
+
+        # Buscar quién pagó todo en el movimiento origen
+        pagador_todo = DetalleMovimiento.query.filter_by(
+            movimiento_id=mov_origen.id,
+            pago_todo=True
+        ).first()
+
+        if not pagador_todo:
+            flash('No hay pagador principal asociado a este movimiento.', 'error')
+            return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
+
+        # Validar movimiento destino
+        movimiento_id = request.form.get('movimiento_id')
+        monto_str = request.form.get('montoAcum', '0').replace(',', '').strip()
+        try:
+            monto = float(monto_str)
+        except ValueError:
+            flash('Monto inválido.', 'error')
+            return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
+
+        # 🔒 No permitir monto mayor al abono original
+        monto_total_distribuido = db.session.query(
+            db.func.sum(AbonoIndirecto.monto_aplicado)
+        ).filter(AbonoIndirecto.abono_id == abono_id).scalar() or 0
+
+        monto_restante_abono = abono_origen.monto - monto_total_distribuido
+        if monto > monto_restante_abono:
+            flash(f'El monto supera el saldo disponible del abono (${monto_restante_abono:,.2f}).', 'error')
+            return redirect(url_for('movimiento_detail', mov_id=mov_origen.id, abono_id=abono_id))
+
+        # Validar destino
+        detalle_destino = DetalleMovimiento.query.filter_by(
+            movimiento_id=movimiento_id,
+            persona_id=pagador_todo.persona_id
+        ).first()
+
+        if not detalle_destino:
+            flash('No se encontró un registro válido en el movimiento destino.', 'error')
+            return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
+
+        # Calcular cuánto se puede aplicar sin pasarse del faltante
+        monto_aplicable = min(monto, detalle_destino.falta)
+
+        # Crear nuevo abono directo en el movimiento destino
+        nuevo_abono = Abono(
+            detalle_id=detalle_destino.id,
+            monto=monto_aplicable,
+            fecha=datetime.now()
+        )
+        db.session.add(nuevo_abono)
+        db.session.flush()
+
+        # Actualizar totales del movimiento destino
+        detalle_destino.abonado += monto_aplicable
+        detalle_destino.falta = max(detalle_destino.monto - detalle_destino.abonado, 0)
+        detalle_destino.estado = 'Pagado' if detalle_destino.falta == 0 else 'Debe'
+
+        # Registrar la relación indirecta
+        relacion = AbonoIndirecto(
+            abono_id=abono_origen.id,
+            movimiento_destino_id=movimiento_id,
+            persona_destino_id=detalle_destino.persona_id,
+            monto_aplicado=monto_aplicable
+        )
+        db.session.add(relacion)
+        db.session.commit()
+
+        flash(f'Abono indirecto aplicado correctamente (${monto_aplicable:,.2f}).', 'success')
+        return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
 
     # -------------------------------
     # EXPORTAR A CSV
