@@ -79,20 +79,13 @@
                     {{ a.monto | default(0) | currency }}
                   </span>
                 </div>
-                <form 
-                  action="{{ url_for('delete_abono', abono_id=a.id) }}" 
-                  method="POST" 
-                  onsubmit="return confirm('¿Seguro que deseas eliminar este abono?');"
-                  class="inline"
-                >
-                  <button 
-                    type="submit" 
-                    class="text-red-500 hover:text-red-700 text-sm font-medium ml-4"
-                    title="Eliminar abono"
-                  >
+                <form action="{{ url_for('delete_abono', abono_id=a.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este abono?');" class="inline" >
+                  <button type="submit" class="text-red-500 hover:text-red-700 text-sm font-medium ml-4" title="Eliminar abono" >
                     <i class="bi bi-trash"></i> Eliminar
                   </button>
                 </form>
+
+                
               </li>
               {% endfor %}
             </ul>
@@ -117,38 +110,49 @@
   </div>
 </div>
 
-<!-- Modal para registrar abono -->
+
+
+<!-- Modal para registrar abono (actualizado) -->
 <div id="modalAbono" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 w-96 relative">
     <h4 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">Registrar Abono</h4>
     <form id="formAbono" method="POST" action="{{ url_for('abonar', mov_id=mov.id) }}">
       <div class="mb-3">
         <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Persona</label>
-        <select name="detalle_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2" required>
+        <select id="selectDetalleAbono" name="detalle_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2" required>
           <option value="" disabled selected>Selecciona una persona</option>
           {% for d in mov.detalles %}
-          <option value="{{ d.id }}">{{ d.person.name }}</option>
+          <option value="{{ d.id }}" data-persona="{{ d.person.id }}">{{ d.person.name }}</option>
           {% endfor %}
         </select>
       </div>
+
       <div class="mb-3">
         <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Monto a abonar</label>
-        <input type="text" name="monto" placeholder="0.00" required
+        <input type="text" id="inputMontoAbono" name="monto" placeholder="0.00" required
                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
                oninput="formatCurrency(this)"
                autocomplete="off">
       </div>
+
       <div class="mb-3">
         <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
         <input type="datetime-local" name="fecha" required
                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
                autocomplete="off">
       </div>
+
+      <!-- Origen del abono -->
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Forma de pago</label>
+        <select name="usar_saldo" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2">
+          <option value="no" selected>Pago directo</option>
+          <option value="si">Usar saldo a favor</option>
+        </select>
+      </div>
       <div class="flex justify-end space-x-2 mt-4">
         <button type="button" onclick="closeModal('modalAbono')" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg"> Cancelar </button>
-
-        <button type="submit" 
-                class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold">Registrar</button>
+        <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold">Registrar</button>
       </div>
     </form>
   </div>
@@ -316,6 +320,92 @@ function formatCurrency(input) {
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   input.value = parts.join('.');
 }
+  // ---------- Lógica para mostrar saldo disponible ----------
+  const selectDetalle = document.getElementById('selectDetalleAbono');
+  const radioSaldo = document.getElementById('radioSaldo');
+  const saldoInfo = document.getElementById('saldoDisponibleInfo');
+  const saldoValorSpan = document.getElementById('saldoValor');
+  const inputMontoAbono = document.getElementById('inputMontoAbono');
+
+  // Guardar último saldo consultado
+  let ultimoSaldo = 0;
+
+  selectDetalle?.addEventListener('change', async () => {
+    // limpiar vista saldo
+    saldoInfo.classList.add('hidden');
+    saldoValorSpan.textContent = '$0.00';
+    ultimoSaldo = 0;
+
+    // si radio 'saldo' está seleccionado, consultar saldo
+    if (radioSaldo && radioSaldo.checked) {
+      await fetchSaldoForSelected();
+    }
+  });
+
+  radioSaldo?.addEventListener('change', async () => {
+    if (radioSaldo.checked) {
+      await fetchSaldoForSelected();
+    } else {
+      saldoInfo.classList.add('hidden');
+    }
+  });
+
+  async function fetchSaldoForSelected() {
+    const opt = selectDetalle?.selectedOptions?.[0];
+    if (!opt) return;
+    const persona_id = opt.dataset.persona;
+    if (!persona_id) return;
+
+    try {
+      const resp = await fetch(`/api/saldo/${persona_id}`);
+      if (!resp.ok) throw new Error('Error consultando saldo');
+      const data = await resp.json();
+      ultimoSaldo = parseFloat(data.saldo) || 0;
+      saldoValorSpan.textContent = (ultimoSaldo).toLocaleString('en-US', { style: 'currency', currency: 'USD' }).replace('$', '$');
+      saldoInfo.classList.remove('hidden');
+    } catch (e) {
+      console.error('Error fetch saldo:', e);
+      saldoInfo.classList.add('hidden');
+    }
+  }
+
+  // Validación simple: si el usuario marca "usar saldo" y no hay saldo -> evitar submit con confirmación
+  document.getElementById('formAbono')?.addEventListener('submit', (ev) => {
+    const origen = document.querySelector('input[name="origen"]:checked')?.value || 'directo';
+    const montoStr = inputMontoAbono.value.replace(/,/g, '');
+    const monto = parseFloat(montoStr) || 0;
+
+    if (origen === 'saldo') {
+      if (!ultimoSaldo || ultimoSaldo <= 0) {
+        ev.preventDefault();
+        alert('No hay saldo disponible para esta persona.');
+        return false;
+      }
+      // si hay saldo pero es menor que el monto, permitimos (el backend usará saldo parcial)
+      // opcion: pedir confirmación si saldo < monto
+      if (ultimoSaldo < monto) {
+        const ok = confirm(`El saldo disponible es ${ultimoSaldo.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}. Deseas usarlo y pagar el resto como abono directo?`);
+        if (!ok) { ev.preventDefault(); return false; }
+      }
+    }
+    // si todo bien, permitir submit; backend hará la lógica de consumo
+    return true;
+  });
+
+  document.querySelector('select[name="detalle_id"]').addEventListener('change', async (e) => {
+    const personaId = e.target.value;
+    const saldoInfo = document.getElementById('saldoDisponibleInfo');
+    const saldoValor = document.getElementById('saldoValor');
+    try {
+      const res = await fetch(`/api/saldo/${personaId}`);
+      const data = await res.json();
+      saldoValor.textContent = `$${data.saldo.toLocaleString()}`;
+      saldoInfo.classList.remove('hidden');
+    } catch {
+      saldoInfo.classList.add('hidden');
+    }
+  });
+
 </script>
 
 {% endblock %}

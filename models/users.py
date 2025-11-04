@@ -1,5 +1,6 @@
 from flask_login import UserMixin
 from models import db
+from datetime import datetime
 
 
 # ==============================
@@ -45,3 +46,19 @@ class ProjectMembers(db.Model):
     __tablename__ = 'project_members'
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+
+# ==============================
+# Saldos a Favor
+# ==============================
+class SaldoFavor(db.Model):
+    __tablename__ = 'saldo_favor'
+    id = db.Column(db.Integer, primary_key=True)
+    persona_id = db.Column(db.Integer, db.ForeignKey('person.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    monto = db.Column(db.Float, nullable=False)
+    comentario = db.Column(db.Text)
+    fecha = db.Column(db.DateTime, default=datetime.utcnow)
+    tipo = db.Column(db.String(10), default='ingreso')  # ingreso o egreso
+
+    persona = db.relationship('Person', backref='saldos_favor', lazy=True)
+    usuario = db.relationship('User', backref='saldos_favor', lazy=True)

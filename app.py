@@ -3,7 +3,7 @@ from datetime import date, datetime
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models.users import db, User, Person
+from models.users import db, User, Person, SaldoFavor
 from models.move import Movimiento, DetalleMovimiento, Abono, AbonoIndirecto
 from forms.forms import LoginForm, RegisterForm, PersonForm, MovimientoForm
 from flask import send_file
@@ -148,31 +148,42 @@ def create_app():
             total_abonos = 0
             total_le_deben = 0
             balance = 0
+
+            # =========================
+            # 🔹 Cálculo de deuda / pagos
+            # =========================
             for d in p.detalles:
-                # Solo contar movimientos del usuario logueado
                 if d.movimiento.user_id != current_user.id:
                     continue
 
-                # Monto total y abonos personales
                 abonos_sum = sum(a.monto for a in d.abonos)
                 total_monto += d.monto
                 total_abonos += abonos_sum
 
-                # Si esta persona pagó todo el movimiento
+                # Si esta persona pagó todo el movimiento → le deben
                 if getattr(d, 'pago_todo', False):
                     otros_detalles = DetalleMovimiento.query.filter(
                         DetalleMovimiento.movimiento_id == d.movimiento_id,
                         DetalleMovimiento.persona_id != p.id
                     ).all()
 
-                    # Sumar la parte que le deben al usuario actual
                     for od in otros_detalles:
                         abonos_od = sum(a.monto for a in od.abonos)
                         deuda_od = max(od.monto - abonos_od, 0)
-                        total_le_deben += deuda_od                        
+                        total_le_deben += deuda_od
 
+            # =========================
+            # 🔹 Sumar saldos a favor disponibles
+            # =========================
+            saldo_favor_total = db.session.query(
+                db.func.coalesce(db.func.sum(SaldoFavor.monto), 0)
+            ).filter_by(persona_id=p.id, user_id=current_user.id).scalar()
+
+            # =========================
+            # 🔹 Cálculo de totales
+            # =========================
             total_debe = max(total_monto - total_abonos, 0)
-            balance = total_debe - total_le_deben
+            balance = total_le_deben - total_debe + saldo_favor_total  # ✅ Incluye saldo a favor
             total_deuda += total_debe
 
             deudas.append({
@@ -180,6 +191,7 @@ def create_app():
                 'debe': total_debe,
                 'pagado': total_abonos,
                 'le_deben': total_le_deben,
+                'saldo_favor': saldo_favor_total,
                 'balance': balance
             })
 
@@ -424,6 +436,7 @@ def create_app():
         db.session.commit()
         return jsonify({'status': 'ok', 'estado': d.estado})
     
+
     @app.route('/movimiento/<int:mov_id>/abonar', methods=['POST'])
     @login_required
     def abonar(mov_id):
@@ -431,6 +444,7 @@ def create_app():
         detalle_id = request.form.get('detalle_id')
         monto_str = request.form.get('monto', '0').replace(',', '').strip()
         fecha_str = request.form.get('fecha', '').strip()
+        usar_saldo = request.form.get('usar_saldo', 'no')  # <-- Campo extra en el formulario
 
         try:
             monto = float(monto_str)
@@ -440,8 +454,31 @@ def create_app():
             return redirect(url_for('movimiento_detail', mov_id=mov_id))
 
         detalle = DetalleMovimiento.query.filter_by(id=detalle_id, movimiento_id=mov.id).first_or_404()
+        persona = detalle.person
 
-        # Crear el nuevo abono
+        # Verificar saldo a favor disponible
+        saldo_actual = db.session.query(db.func.sum(SaldoFavor.monto)).filter_by(persona_id=persona.id).scalar() or 0
+
+        if usar_saldo == 'si':
+            if saldo_actual <= 0:
+                flash(f'{persona.name} no tiene saldo a favor disponible.', 'error')
+                return redirect(url_for('movimiento_detail', mov_id=mov.id))
+
+            if monto > saldo_actual:
+                flash(f'El saldo disponible de {persona.name} (${saldo_actual:,.2f}) es insuficiente.', 'error')
+                return redirect(url_for('movimiento_detail', mov_id=mov.id))
+
+            # Registrar el uso del saldo (monto negativo)
+            registro_saldo = SaldoFavor(
+                persona_id=persona.id,
+                user_id=current_user.id,
+                monto=-monto,
+                fecha=fecha_obj,
+                comentario=f'Uso de saldo a favor en movimiento #{mov.id}'
+            )
+            db.session.add(registro_saldo)
+
+        # Crear el nuevo abono normal
         nuevo_abono = Abono(detalle_id=detalle.id, monto=monto, fecha=fecha_obj)
         db.session.add(nuevo_abono)
         db.session.flush()
@@ -454,7 +491,10 @@ def create_app():
 
         db.session.commit()
 
-        flash(f'Abono de ${monto:,.2f} registrado correctamente.', 'success')
+        if usar_saldo == 'si':
+            flash(f'Abono de ${monto:,.2f} registrado usando saldo a favor.', 'success')
+        else:
+            flash(f'Abono de ${monto:,.2f} registrado correctamente.', 'success')
 
         return redirect(url_for('movimiento_detail', mov_id=mov.id, abono_id=nuevo_abono.id))
 
@@ -463,14 +503,35 @@ def create_app():
     def delete_abono(abono_id):
         abono = Abono.query.get_or_404(abono_id)
         detalle = abono.detalle
+        mov = detalle.movimiento
+        persona = detalle.person
         mov_id = detalle.movimiento_id
 
-        # Eliminar abonos indirectos relacionados
-        if hasattr(abono, 'indirectos'):  # si existe la relación
+        # 1️⃣ Eliminar abonos indirectos relacionados (mantienes lo tuyo)
+        if hasattr(abono, 'indirectos'):
             for indirecto in abono.indirectos:
                 db.session.delete(indirecto)
 
-        # Restar el monto del abono eliminado
+        # 2️⃣ Buscar si este abono usó saldo a favor (para revertirlo)
+        uso_saldo = SaldoFavor.query.filter(
+            SaldoFavor.persona_id == persona.id,
+            SaldoFavor.user_id == current_user.id,
+            SaldoFavor.monto == -abono.monto,
+            SaldoFavor.comentario.like(f'%movimiento #{mov.id}%')
+        ).first()
+
+        if uso_saldo:
+            # Revertir el saldo a favor creando un registro positivo
+            reversion = SaldoFavor(
+                persona_id=persona.id,
+                user_id=current_user.id,
+                monto=abono.monto,
+                fecha=datetime.utcnow(),
+                comentario=f'Reversión de uso de saldo por eliminación de abono #{abono.id} del movimiento #{mov.id}'
+            )
+            db.session.add(reversion)
+
+        # 3️⃣ Restar el monto del abono eliminado
         detalle.abonado -= abono.monto
         if detalle.abonado < 0:
             detalle.abonado = 0
@@ -482,10 +543,10 @@ def create_app():
         db.session.delete(abono)
         db.session.commit()
 
-        flash('Abono y sus relaciones eliminados correctamente.', 'success')
+        flash('Abono eliminado correctamente. Se revirtió el saldo si aplicaba.', 'success')
         return redirect(url_for('movimiento_detail', mov_id=mov_id))
 
-    
+
     @app.route('/abono/<int:abono_id>/asignar-indirecto', methods=['POST'])
     @login_required
     def asignar_abono_indirecto(abono_id):
@@ -522,7 +583,26 @@ def create_app():
             flash(f'El monto supera el saldo disponible del abono (${monto_restante_abono:,.2f}).', 'error')
             return redirect(url_for('movimiento_detail', mov_id=mov_origen.id, abono_id=abono_id))
 
-        # Validar destino
+        # 🧭 Si no se seleccionó un movimiento destino → convertir en saldo a favor
+        if not movimiento_id or movimiento_id.strip() == '' or movimiento_id == '0':
+            if monto_restante_abono <= 0:
+                flash('No hay monto restante para asignar a saldo a favor.', 'info')
+                return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
+
+            nuevo_saldo = SaldoFavor(
+                persona_id=pagador_todo.persona_id,
+                user_id=current_user.id,
+                monto=monto_restante_abono,
+                fecha=datetime.utcnow(),
+                comentario=f'Saldo a favor generado por abono #{abono_id} del movimiento #{mov_origen.id}'
+            )
+            db.session.add(nuevo_saldo)
+            db.session.commit()
+
+            flash(f'Se registró ${monto_restante_abono:,.2f} como saldo a favor para {pagador_todo.person.name}.', 'success')
+            return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
+
+        # Si sí hay un destino válido:
         detalle_destino = DetalleMovimiento.query.filter_by(
             movimiento_id=movimiento_id,
             persona_id=pagador_todo.persona_id
@@ -561,6 +641,76 @@ def create_app():
 
         flash(f'Abono indirecto aplicado correctamente (${monto_aplicable:,.2f}).', 'success')
         return redirect(url_for('movimiento_detail', mov_id=mov_origen.id))
+
+    # ==============================
+    # SALDO A FAVOR
+    # ==============================
+    @app.route('/saldo-favor', methods=['GET'])
+    @login_required
+    def saldo_favor():
+        personas = Person.query.filter_by(user_id=current_user.id).all()
+        data = []
+
+        for p in personas:
+            movimientos = SaldoFavor.query.filter_by(persona_id=p.id, user_id=current_user.id).all()
+            saldo_total = sum(m.monto if m.tipo == 'ingreso' else -m.monto for m in movimientos)
+            ultima_fecha = max((m.fecha for m in movimientos), default=None)
+            data.append({
+                'id': p.id,
+                'name': p.name,
+                'saldo_total': saldo_total,
+                'ultima_fecha': ultima_fecha
+            })
+
+        return render_template('saldo_favor.html', registros=data, personas=personas)
+
+    @app.route('/saldo-favor/add', methods=['POST'])
+    @login_required
+    def saldo_favor_add():
+        persona_id = request.form.get('persona_id')
+        monto_raw = request.form.get('monto', '0').replace(',', '').strip()
+        comentario = request.form.get('comentario', '').strip()
+        fecha_raw = request.form.get('fecha', '').strip()
+        tipo = 'ingreso'  # por defecto ingreso
+
+        if not persona_id or not monto_raw or not fecha_raw:
+            flash('Todos los campos son obligatorios.', 'danger')
+            return redirect(url_for('saldo_favor'))
+
+        try:
+            monto = float(monto_raw)
+            fecha = datetime.strptime(fecha_raw, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            flash('Formato inválido en monto o fecha.', 'danger')
+            return redirect(url_for('saldo_favor'))
+
+        # Permitir registrar valores negativos (egreso)
+        if monto < 0:
+            tipo = 'egreso'
+            monto = abs(monto)
+
+        nuevo = SaldoFavor(
+            persona_id=persona_id,
+            user_id=current_user.id,
+            monto=monto,
+            comentario=comentario,
+            fecha=fecha,
+            tipo=tipo
+        )
+        db.session.add(nuevo)
+        db.session.commit()
+        flash('Saldo registrado correctamente.', 'success')
+        return redirect(url_for('saldo_favor'))
+
+    @app.route('/saldo-favor/historico/<int:persona_id>')
+    @login_required
+    def saldo_favor_historico(persona_id):
+        persona = Person.query.filter_by(id=persona_id, user_id=current_user.id).first_or_404()
+        registros = SaldoFavor.query.filter_by(persona_id=persona.id, user_id=current_user.id).order_by(SaldoFavor.fecha.desc()).all()
+        saldo_total = sum(r.monto if r.tipo == 'ingreso' else -r.monto for r in registros)
+
+        return render_template('saldo_favor_historico.html', persona=persona, registros=registros, saldo_total=saldo_total)
+
 
     # -------------------------------
     # EXPORTAR A CSV

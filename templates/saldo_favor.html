@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 max-w-5xl mx-auto mt-6">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-xl font-bold text-indigo-600 dark:text-indigo-400">Saldo a Favor</h3>
+    <button onclick="openModal('modalSaldoFavor')" 
+            class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold transition">
+      ➕ Nuevo registro
+    </button>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm text-left border-collapse">
+      <thead class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+        <tr>
+          <th class="p-2">Persona</th>
+          <th class="p-2 text-right">Saldo Total</th>
+          <th class="p-2 text-center">Último Movimiento</th>
+          <th class="p-2 text-center">Histórico</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in registros %}
+        <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <td class="p-2">{{ r.name }}</td>
+          <td class="p-2 text-right {{ 'text-green-600' if r.saldo_total > 0 else 'text-red-500' }}">
+            {{ r.saldo_total | currency }}
+          </td>
+          <td class="p-2 text-center">
+            {{ r.ultima_fecha.strftime('%Y-%m-%d %H:%M') if r.ultima_fecha else '-' }}
+          </td>
+          <td class="p-2 text-center">
+            <a href="{{ url_for('saldo_favor_historico', persona_id=r.id) }}" 
+               class="text-indigo-500 hover:underline">Ver</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="p-4 text-center text-gray-500">No hay registros</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalSaldoFavor" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 w-96 relative">
+    <h4 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">Registrar Saldo a Favor</h4>
+    <form method="POST" action="{{ url_for('saldo_favor_add') }}">
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Persona</label>
+        <select name="persona_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2" required>
+          <option value="" disabled selected>Selecciona una persona</option>
+          {% for p in personas %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Monto (puede ser negativo)</label>
+        <input type="text" name="monto" placeholder="0.00" required
+               class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right"
+               oninput="formatCurrency(this)">
+      </div>
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
+        <input type="datetime-local" name="fecha" required
+               class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2 text-right">
+      </div>
+      <div class="mb-3">
+        <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Comentario</label>
+        <textarea name="comentario" rows="2"
+                  class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-2"></textarea>
+      </div>
+      <div class="flex justify-end space-x-2 mt-4">
+        <button type="button" onclick="closeModal('modalSaldoFavor')" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-semibold">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal(id) {
+  const modal = document.getElementById(id);
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+function formatCurrency(input) {
+  let value = input.value.replace(/,/g, '').replace(/[^\d.-]/g, '');
+  if (!value) { input.value = ''; return; }
+  const parts = value.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  input.value = parts.join('.');
+}
+</script>
+
+{% endblock %}

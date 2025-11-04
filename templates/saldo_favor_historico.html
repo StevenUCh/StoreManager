@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 max-w-4xl mx-auto mt-6">
+  <h3 class="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+    Histórico de {{ persona.name }}
+  </h3>
+  <p class="mb-4 text-gray-600 dark:text-gray-300">Saldo actual: 
+    <span class="{{ 'text-green-600' if saldo_total > 0 else 'text-red-500' }}">
+      {{ saldo_total | currency }}
+    </span>
+  </p>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm text-left border-collapse">
+      <thead class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+        <tr>
+          <th class="p-2">Fecha</th>
+          <th class="p-2 text-right">Monto</th>
+          <th class="p-2">Tipo</th>
+          <th class="p-2">Comentario</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in registros %}
+        <tr class="border-b border-gray-200 dark:border-gray-700">
+          <td class="p-2">{{ r.fecha.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="p-2 text-right {{ 'text-green-600' if r.tipo == 'ingreso' else 'text-red-500' }}">
+            {{ (r.monto if r.tipo == 'ingreso' else -r.monto) | currency }}
+          </td>
+          <td class="p-2">{{ r.tipo|capitalize }}</td>
+          <td class="p-2">{{ r.comentario or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="p-4 text-center text-gray-500">Sin movimientos</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-6 text-right">
+    <a href="{{ url_for('saldo_favor') }}" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded-lg">⬅ Volver</a>
+  </div>
+</div>
+
+{% endblock %}
