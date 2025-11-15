@@ -23,25 +23,26 @@ function dividirIgual() {
 
 function dividirSeleccionadas() {
   const totalInput = document.getElementById('montoTotal');
-  let total = parseFloat(totalInput.value.replace(/,/g, '')) || 0;
+  let total = parseInt(totalInput.value.replace(/,/g, '')) || 0; // total entero
   
   const checkboxes = document.querySelectorAll('.person-checkbox:checked');
-  if(checkboxes.length === 0) return;
+  if (checkboxes.length === 0) return;
 
-  const division = Math.floor((total / checkboxes.length) * 100) / 100; // evita decimales infinitos
+  const base = Math.floor(total / checkboxes.length); // división entera
   let acumulado = 0;
 
   checkboxes.forEach((cb, idx) => {
     const personId = cb.dataset.personId;
-    let value = division;
-    acumulado += division;
+    let value = base;
+    acumulado += base;
 
-    if(idx === checkboxes.length - 1){
-      value = total - (acumulado - division); // Ajusta última persona
+    // Última persona → ajuste del sobrante
+    if (idx === checkboxes.length - 1) {
+      value = total - (acumulado - base);
     }
 
     const montoInput = document.querySelector(`[name="monto_${personId}"]`);
-    montoInput.value = value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    montoInput.value = value.toLocaleString('en-US'); // sin decimales
 
     calcularFalta(personId);
   });
