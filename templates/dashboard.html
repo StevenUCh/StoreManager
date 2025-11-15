@@ -23,58 +23,14 @@
   </div>
 </div>
 
-<!-- Movimientos recientes -->
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-8 overflow-x-auto">
-  <div class="flex justify-between items-center mb-3">
-    <h5 class="text-lg font-semibold dark:text-gray-100">Movimientos recientes</h5>
-    <div class="flex gap-2">
-      <a href="{{ url_for('export_csv') }}" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm transition">
-        Exportar CSV
-      </a>
-      <a href="{{ url_for('export_pdf') }}" class="px-3 py-1 bg-gray-700 hover:bg-gray-800 text-white rounded-lg text-sm transition">
-        Exportar PDF
-      </a>
-    </div>
-  </div>
+<!-- ======================= -->
+<!-- MOVIMIENTOS (CON AJAX) -->
+<!-- ======================= -->
 
-  <table class="w-full text-sm text-left text-gray-600 dark:text-gray-300">
-    <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-      <tr>
-        <th class="px-3 py-2 text-center">Fecha</th>
-        <th class="px-3 py-2 text-center">Tipo</th>
-        <th class="px-3 py-2 text-center">Categoría</th>
-        <th class="px-3 py-2 text-center">Descripción</th>
-        <th class="px-3 py-2 text-center">Monto</th>
-        <th class="px-3 py-2 text-center">Debe</th>
-        <th class="px-3 py-2 text-center" colspan="2">Acción</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for m in movimientos %}
-      <tr class="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-        <td class="text-center px-3 py-2">{{ m.fecha }}</td>
-        <td class="text-center px-3 py-2 capitalize">{{ m.tipo }}</td>
-        <td class="text-center px-3 py-2">{{ m.categoria }}</td>
-        <td class="text-center px-3 py-2">{{ m.descripcion }}</td>
-        <td class="text-center px-3 py-2">{{ m.monto|currency }}</td>
-        <td class="text-center px-3 py-2">{{ m.falta|currency }}</td>
-        <td class="text-center px-3 py-2">
-          <a href="{{ url_for('movimiento_detail', mov_id=m.id) }}" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs">
-            Ver
-          </a>
-        </td>
-        <td>
-          <form method="POST" action="{{ url_for('movimiento_delete', mov_id=m.id) }}" class="inline" onsubmit="return confirm('¿Seguro que deseas eliminar este movimiento?');">
-            <button type="submit" class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs">
-              Eliminar
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div id="tabla-movimientos">
+  {% include "dashboard_table.html" %}
 </div>
+
 <!-- Deudas por persona -->
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 mb-8 overflow-x-auto">
   <h5 class="text-lg font-semibold mb-3 dark:text-gray-100">Deudas por persona</h5>
@@ -86,7 +42,7 @@
         <th class="px-3 py-2 text-center">Monto Debe</th>
         <th class="px-3 py-2 text-center">Monto Pagado</th>
         <th class="px-3 py-2 text-center">Le Deben</th>
-        <th class="px-3 py-2 text-center">Saldo a Favor</th> <!-- ✅ Nuevo -->
+        <th class="px-3 py-2 text-center">Saldo a Favor</th>
         <th class="px-3 py-2 text-center">Balance Neto</th>
       </tr>
     </thead>
@@ -123,8 +79,6 @@
     <p>💸 Deben en total: <strong>{{ total_deuda | currency }}</strong></p>
   </div>
 </div>
-
-
 
 <!-- Gráficas -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

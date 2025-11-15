@@ -72,4 +72,4 @@ def sync_and_clean_database():
 
 
 if __name__ == "__main__":
-    sync_and_clean_database()
+    backup_database()
